@@ -2,11 +2,7 @@ import * as Cesium from 'cesium'
 import { sampleFrame } from '../data/interpolate'
 import { toCesiumColor, sampleRamp } from '../shared/color'
 import { paletteFor } from '../shared/palettes'
-import type {
-  WeatherFrame,
-  WeatherLayerData,
-  WeatherScale
-} from '../shared/types'
+import type { WeatherFrame, WeatherLayerData, WeatherScale } from '../shared/types'
 
 export interface RasterWeatherLayerOptions {
   visible?: boolean
@@ -18,12 +14,19 @@ export interface RasterWeatherLayerOptions {
   scale?: WeatherScale
   /** Canvas 放大倍数，默认 8，最大边长约 2048 */
   canvasScale?: number
+  /** 帧切换是否淡入淡出，默认 true */
+  crossfade?: boolean
+  /** 淡入淡出时长（毫秒），默认 300 */
+  crossfadeDuration?: number
+  onError?: (error: unknown) => void
 }
 
-function valueAt(
-  values: Float32Array | number[],
-  index: number
-): number {
+interface FrameSize {
+  width: number
+  height: number
+}
+
+function valueAt(values: Float32Array | number[], index: number): number {
   return Number(values[index] ?? 0)
 }
 
@@ -53,11 +56,18 @@ export class RasterWeatherLayer {
   private readonly max: number
   private readonly scale: WeatherScale
   private readonly canvasScale: number
+  private readonly crossfade: boolean
+  private readonly crossfadeDuration: number
+  private readonly onError?: (error: unknown) => void
   private readonly cache = new WeakMap<WeatherFrame, string>()
+  private readonly imageSizeCache = new Map<string, Promise<FrameSize>>()
+  private readonly fadingLayers = new Set<Cesium.ImageryLayer>()
+  private animationFrame: number | null = null
   private visible: boolean
   private alphaValue: number
   private added = false
   private destroyed = false
+  private sequence = 0
 
   constructor(
     private readonly viewer: Cesium.Viewer,
@@ -73,6 +83,9 @@ export class RasterWeatherLayer {
     this.max = options.max ?? data.legend?.max ?? paletteFor(data.kind).max
     this.scale = options.scale ?? data.scale ?? 'linear'
     this.canvasScale = Math.max(1, Math.floor(options.canvasScale ?? 8))
+    this.crossfade = options.crossfade ?? true
+    this.crossfadeDuration = Math.max(0, options.crossfadeDuration ?? 300)
+    this.onError = options.onError
     this.colors = (options.colors ?? data.legend?.colors ?? paletteFor(data.kind).colors).map(
       toCesiumColor
     )
@@ -85,6 +98,9 @@ export class RasterWeatherLayer {
   set show(value: boolean) {
     this.visible = value
     if (this.layer) this.layer.show = value
+    this.fadingLayers.forEach((layer) => {
+      layer.show = value
+    })
     this.requestRender()
   }
 
@@ -121,15 +137,24 @@ export class RasterWeatherLayer {
     if (this.destroyed) return
     this.currentFrame = frame
     if (!this.added) return
+    void this.applyFrame(frame)
+  }
 
-    if (this.viewer.isDestroyed()) return
-    const next = this.createLayer(frame)
-    const previous = this.layer
-    this.layer = next
-    if (previous && !this.viewer.isDestroyed()) {
-      this.viewer.imageryLayers.remove(previous, true)
+  /** 预生成下一帧图片，减少播放时的卡顿。 */
+  preloadFrame(frame: WeatherFrame): void {
+    if (this.destroyed) return
+    if (frame.imageUrl) {
+      void Promise.resolve(this.resolveFrameSize(frame)).catch((error) => this.onError?.(error))
+      return
     }
-    this.requestRender()
+    setTimeout(() => {
+      if (this.destroyed) return
+      try {
+        this.frameImageUrl(frame)
+      } catch (error) {
+        this.onError?.(error)
+      }
+    }, 0)
   }
 
   /** 返回当前帧的图片地址，图片帧直接返回原地址。 */
@@ -173,7 +198,38 @@ export class RasterWeatherLayer {
     this.requestRender()
   }
 
-  private createLayer(frame: WeatherFrame): Cesium.ImageryLayer {
+  private async applyFrame(frame: WeatherFrame): Promise<void> {
+    const sequence = ++this.sequence
+    try {
+      const size = await this.resolveFrameSize(frame)
+      if (
+        sequence !== this.sequence ||
+        this.destroyed ||
+        !this.added ||
+        this.viewer.isDestroyed()
+      ) {
+        return
+      }
+      const next = this.createLayer(frame, size)
+      const previous = this.layer
+      this.layer = next
+      if (!previous) {
+        next.alpha = this.alphaValue
+        return
+      }
+      if (!this.crossfade || this.crossfadeDuration === 0) {
+        this.removeImageryLayer(previous)
+        next.alpha = this.alphaValue
+        return
+      }
+      next.alpha = 0
+      this.animateCrossfade(previous, next)
+    } catch (error) {
+      this.onError?.(error)
+    }
+  }
+
+  private createLayer(frame: WeatherFrame, size: FrameSize): Cesium.ImageryLayer {
     const { bounds } = frame
     const rectangle = Cesium.Rectangle.fromDegrees(
       bounds.west,
@@ -181,10 +237,8 @@ export class RasterWeatherLayer {
       bounds.east,
       bounds.north
     )
-    const url = this.frameImageUrl(frame)
-    const size = this.frameTileSize(frame)
     const provider = new Cesium.SingleTileImageryProvider({
-      url,
+      url: this.frameImageUrl(frame),
       rectangle,
       tileWidth: size.width,
       tileHeight: size.height
@@ -195,18 +249,89 @@ export class RasterWeatherLayer {
     return layer
   }
 
+  private animateCrossfade(previous: Cesium.ImageryLayer, next: Cesium.ImageryLayer): void {
+    this.cancelAnimation()
+    this.fadingLayers.add(previous)
+    const target = this.alphaValue
+    const started = Date.now()
+    const step = (): void => {
+      if (this.destroyed) {
+        this.cancelAnimation()
+        return
+      }
+      const progress = Math.min(1, (Date.now() - started) / this.crossfadeDuration)
+      next.alpha = target * progress
+      previous.alpha = target * (1 - progress)
+      this.requestRender()
+      if (progress >= 1) {
+        this.animationFrame = null
+        this.fadingLayers.delete(previous)
+        this.removeImageryLayer(previous)
+        return
+      }
+      if (typeof requestAnimationFrame === 'function') {
+        this.animationFrame = requestAnimationFrame(step)
+      } else {
+        setTimeout(step, 16)
+      }
+    }
+    step()
+  }
+
+  private cancelAnimation(): void {
+    if (this.animationFrame !== null && typeof cancelAnimationFrame === 'function') {
+      cancelAnimationFrame(this.animationFrame)
+    }
+    this.animationFrame = null
+    this.fadingLayers.forEach((layer) => this.removeImageryLayer(layer))
+    this.fadingLayers.clear()
+  }
+
   private removeLayer(): void {
+    this.cancelAnimation()
     const layer = this.layer
     this.layer = null
-    if (layer && !this.viewer.isDestroyed()) {
+    if (layer) this.removeImageryLayer(layer)
+  }
+
+  private removeImageryLayer(layer: Cesium.ImageryLayer): void {
+    if (!this.viewer.isDestroyed()) {
       this.viewer.imageryLayers.remove(layer, true)
     }
   }
 
-  private frameTileSize(frame: WeatherFrame): { width: number; height: number } {
+  private resolveFrameSize(frame: WeatherFrame): Promise<FrameSize> | FrameSize {
     if (frame.imageUrl) {
-      return { width: frame.width ?? 1024, height: frame.height ?? 512 }
+      if (frame.width && frame.height) {
+        return { width: frame.width, height: frame.height }
+      }
+      const cached = this.imageSizeCache.get(frame.imageUrl)
+      if (cached) return cached
+      const pending = this.loadImageSize(frame.imageUrl)
+      this.imageSizeCache.set(frame.imageUrl, pending)
+      return pending
     }
+    return this.gridTileSize(frame)
+  }
+
+  private loadImageSize(url: string): Promise<FrameSize> {
+    return new Promise((resolve) => {
+      if (typeof Image === 'undefined') {
+        resolve({ width: 1024, height: 512 })
+        return
+      }
+      const image = new Image()
+      image.onload = () =>
+        resolve({
+          width: image.naturalWidth || 1024,
+          height: image.naturalHeight || 512
+        })
+      image.onerror = () => resolve({ width: 1024, height: 512 })
+      image.src = url
+    })
+  }
+
+  private gridTileSize(frame: WeatherFrame): FrameSize {
     const width = frame.width ?? 1
     const height = frame.height ?? 1
     const maxSide = 2048
@@ -239,17 +364,11 @@ export class RasterWeatherLayer {
       for (let x = 0; x < width; x += 1) {
         const value = valueAt(values, y * width + x)
         const index = ((height - 1 - y) * width + x) * 4
-        if (
-          !Number.isFinite(value) ||
-          (noData !== undefined && value === noData)
-        ) {
+        if (!Number.isFinite(value) || (noData !== undefined && value === noData)) {
           image.data[index + 3] = 0
           continue
         }
-        const color = sampleRamp(
-          this.colors,
-          normalizeValue(value, this.min, this.max, this.scale)
-        )
+        const color = sampleRamp(this.colors, normalizeValue(value, this.min, this.max, this.scale))
         image.data[index] = Math.round(color.red * 255)
         image.data[index + 1] = Math.round(color.green * 255)
         image.data[index + 2] = Math.round(color.blue * 255)
@@ -258,16 +377,14 @@ export class RasterWeatherLayer {
     }
     context.putImageData(image, 0, 0)
 
-    const maxSide = 2048
-    const scale = Math.max(
-      1,
-      Math.min(this.canvasScale, Math.floor(maxSide / Math.max(width, height)) || 1)
-    )
-    if (scale === 1) return source.toDataURL('image/png')
+    const size = this.gridTileSize(frame)
+    if (size.width === width && size.height === height) {
+      return source.toDataURL('image/png')
+    }
 
     const target = document.createElement('canvas')
-    target.width = width * scale
-    target.height = height * scale
+    target.width = size.width
+    target.height = size.height
     const targetContext = target.getContext('2d')
     if (!targetContext) {
       throw new Error('@cesium-kit/weather: Canvas 2D 不可用')

@@ -12,6 +12,7 @@ import type { ImageryManager, AddImageryOptions, ImagerySource } from '../imager
 import type { PickService } from '../pick/PickService'
 import type { PopupScope } from '../popup/types'
 import type { PopupService } from '../popup/PopupService'
+import type { LayerManager } from '../layer/LayerManager'
 import type { AddTilesetOptions, TilesetManager, TilesetSource } from '../tileset/TilesetManager'
 import type { CesiumKitEventMap } from '../types'
 import { createId } from '../utils/assert'
@@ -33,6 +34,7 @@ export interface FeatureRegistryDeps {
   dataSources: DataSourceManager
   tilesets: TilesetManager
   popup: PopupService
+  layerManager?: LayerManager
 }
 
 interface FeatureEntry {
@@ -219,6 +221,7 @@ export class FeatureRegistry {
       pick: this.deps.pick,
       draw,
       popup,
+      layerManager: this.deps.layerManager,
       log: createLogger(`feature:${feature.name}`)
     }
 

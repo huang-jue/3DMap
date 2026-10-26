@@ -60,10 +60,28 @@ const PALETTES = {
 
 const LAYER_META = [
   { kind: 'precip', name: '降水', file: 'precip.json', defaultAlpha: 0.78, defaultVisible: true },
-  { kind: 'radar', name: '雷达回波', file: 'radar.json', defaultAlpha: 0.72, defaultVisible: false },
-  { kind: 'temperature', name: '温度', file: 'temperature.json', defaultAlpha: 0.62, defaultVisible: false },
+  {
+    kind: 'radar',
+    name: '雷达回波',
+    file: 'radar.json',
+    defaultAlpha: 0.72,
+    defaultVisible: false
+  },
+  {
+    kind: 'temperature',
+    name: '温度',
+    file: 'temperature.json',
+    defaultAlpha: 0.62,
+    defaultVisible: false
+  },
   { kind: 'cloud', name: '云量', file: 'cloud.json', defaultAlpha: 0.55, defaultVisible: false },
-  { kind: 'humidity', name: '湿度', file: 'humidity.json', defaultAlpha: 0.58, defaultVisible: false }
+  {
+    kind: 'humidity',
+    name: '湿度',
+    file: 'humidity.json',
+    defaultAlpha: 0.58,
+    defaultVisible: false
+  }
 ]
 
 function clamp(value, min, max) {
@@ -262,11 +280,7 @@ function buildWarnings() {
 mkdirSync(OUTPUT_DIR, { recursive: true })
 
 for (const meta of LAYER_META) {
-  writeFileSync(
-    `${OUTPUT_DIR}${meta.file}`,
-    `${JSON.stringify(buildLayer(meta))}\n`,
-    'utf8'
-  )
+  writeFileSync(`${OUTPUT_DIR}${meta.file}`, `${JSON.stringify(buildLayer(meta))}\n`, 'utf8')
 }
 
 writeFileSync(
@@ -283,21 +297,15 @@ writeFileSync(
       width: WIDTH,
       height: HEIGHT,
       legend: PALETTES[meta.kind]
-    }))
+    })),
+    pointsFile: 'cities.json',
+    warningsFile: 'warnings.geojson'
   })}\n`,
   'utf8'
 )
 
-writeFileSync(
-  `${OUTPUT_DIR}cities.json`,
-  `${JSON.stringify(buildCities())}\n`,
-  'utf8'
-)
+writeFileSync(`${OUTPUT_DIR}cities.json`, `${JSON.stringify(buildCities())}\n`, 'utf8')
 
-writeFileSync(
-  `${OUTPUT_DIR}warnings.geojson`,
-  `${JSON.stringify(buildWarnings())}\n`,
-  'utf8'
-)
+writeFileSync(`${OUTPUT_DIR}warnings.geojson`, `${JSON.stringify(buildWarnings())}\n`, 'utf8')
 
 console.log(`[weather] 已生成样例数据：${OUTPUT_DIR}`)

@@ -5,13 +5,7 @@
 ## 数据
 
 ```ts
-type WeatherLayerKind =
-  | 'precip'
-  | 'radar'
-  | 'temperature'
-  | 'cloud'
-  | 'humidity'
-  | 'pressure'
+type WeatherLayerKind = 'precip' | 'radar' | 'temperature' | 'cloud' | 'humidity' | 'pressure'
 
 interface WeatherFrame {
   time: Date
@@ -66,6 +60,7 @@ class RasterWeatherLayer {
   frame: WeatherFrame
   renderLayer: Cesium.ImageryLayer | null
   frameImageUrl(frame: WeatherFrame): string
+  preloadFrame(frame: WeatherFrame): void
   getValueAt(lon: number, lat: number): number | null
   zoomTo(duration?: number): void
   isDestroyed(): boolean
@@ -80,6 +75,9 @@ interface RasterWeatherLayerOptions {
   max?: number
   scale?: 'linear' | 'log'
   canvasScale?: number
+  crossfade?: boolean
+  crossfadeDuration?: number
+  onError?: (error: unknown) => void
 }
 ```
 
@@ -94,6 +92,9 @@ interface WeatherRasterFeatureOptions extends RasterWeatherLayerOptions {
   syncClockRange?: boolean
   timeRange?: [Date | string, Date | string]
   flyTo?: boolean
+  preload?: number
+  layerTree?: boolean
+  onFrameChange?: (kind: WeatherLayerKind, frame: WeatherFrame) => void
 }
 
 createWeatherRasterFeature(options: WeatherRasterFeatureOptions): WeatherRasterFeature
@@ -108,6 +109,7 @@ readonly data: WeatherLayerData | null
 readonly frames: WeatherFrame[]
 setVisible(visible: boolean): void
 setAlpha(alpha: number): void
+setFollowClock(enabled: boolean): void
 setTime(time: Date): void
 setTimeRange(start: Date | string, end: Date | string): void
 getTimeRange(): WeatherTimeRange | null
@@ -115,6 +117,8 @@ getAvailableRange(): WeatherTimeRange | null
 getCurrentFrame(): WeatherFrame | null
 getValueAt(lon: number, lat: number): number | null
 zoomTo(duration?: number): void
+updateData(data: WeatherLayerData | string): Promise<void>
+refresh(): Promise<void>
 ```
 
 ## 多图层插件
@@ -122,11 +126,21 @@ zoomTo(duration?: number): void
 ```ts
 interface WeatherPluginConfig {
   layers: WeatherRasterFeatureOptions[]
+  points?: WeatherPointFeatureOptions | false
+  warnings?: WeatherWarningFeatureOptions | false
   name?: string
   timeRange?: [Date | string, Date | string]
   followClock?: boolean
   syncClockRange?: boolean
+  lazy?: boolean
+  continueOnError?: boolean
+  onLayerError?: (key: WeatherPluginErrorKey, error: unknown) => void
+  onLayerLoaded?: (key: WeatherPluginErrorKey) => void
+  onFrameChange?: (kind: WeatherLayerKind, frame: WeatherFrame) => void
+  onTimeRangeChange?: (range: WeatherTimeRange | null) => void
 }
+
+type WeatherPluginErrorKey = WeatherLayerKind | 'points' | 'warnings'
 
 createWeatherPlugin(config: WeatherPluginConfig): WeatherPlugin
 ```
@@ -135,12 +149,46 @@ createWeatherPlugin(config: WeatherPluginConfig): WeatherPlugin
 
 ```ts
 readonly layers: Partial<Record<WeatherLayerKind, WeatherRasterFeature>>
-setLayerVisible(kind: WeatherLayerKind, visible: boolean): void
+readonly points: WeatherPointFeature | null
+readonly warnings: WeatherWarningFeature | null
+readonly errors: Partial<Record<WeatherPluginErrorKey, unknown>>
+setLayerVisible(kind: WeatherLayerKind, visible: boolean): void | Promise<void>
 setLayerAlpha(kind: WeatherLayerKind, alpha: number): void
+setPointsVisible(visible: boolean): void
+setWarningsVisible(visible: boolean): void
+setFollowClock(enabled: boolean): void
 setTime(time: Date): void
 setTimeRange(start: Date | string, end: Date | string): void
 getTimeRange(): WeatherTimeRange | null
 getAvailableRange(): WeatherTimeRange | null
 getCurrentFrame(kind: WeatherLayerKind): WeatherFrame | null
 getValueAt(kind: WeatherLayerKind, lon: number, lat: number): number | null
+refresh(): Promise<void>
+updateLayerData(kind: WeatherLayerKind, data: WeatherLayerData | string): Promise<void>
+```
+
+## 点预报
+
+```ts
+interface WeatherPointFeatureOptions extends WeatherPointLayerOptions {
+  points: WeatherPointForecast[] | string
+  name?: string
+  showPopup?: boolean
+  onSelect?: (point: WeatherPointForecast | null) => void
+}
+
+createWeatherPointFeature(options: WeatherPointFeatureOptions): WeatherPointFeature
+```
+
+## 气象预警
+
+```ts
+interface WeatherWarningFeatureOptions extends WeatherWarningLayerOptions {
+  warnings: WeatherWarning[] | string
+  name?: string
+  showPopup?: boolean
+  onSelect?: (warning: WeatherWarning | null) => void
+}
+
+createWeatherWarningFeature(options: WeatherWarningFeatureOptions): WeatherWarningFeature
 ```

@@ -162,6 +162,33 @@ describe('LayerManager', () => {
     expect(dataSources.remove).toHaveBeenCalledWith('rivers')
   })
 
+  it('自定义图层接入图层树并可级联控制', () => {
+    const { manager } = createHarness()
+    const setVisible = vi.fn()
+    const setAlpha = vi.fn()
+    const destroy = vi.fn()
+    const group = manager.createGroup('天气图层')
+    const node = manager.addCustom('降水', {
+      id: 'weather-precip',
+      parentId: group.id,
+      handle: { setVisible, setAlpha, destroy }
+    })
+
+    expect(node.kind).toBe('custom')
+    expect(node.parentId).toBe(group.id)
+    expect(setVisible).toHaveBeenLastCalledWith(true)
+
+    manager.setVisible(group.id, false)
+    expect(setVisible).toHaveBeenLastCalledWith(false)
+
+    manager.setAlpha('weather-precip', 0.4)
+    expect(setAlpha).toHaveBeenLastCalledWith(0.4)
+
+    manager.remove('weather-precip')
+    expect(destroy).toHaveBeenCalled()
+    expect(manager.get('weather-precip')).toBeUndefined()
+  })
+
   it('创建实体组并加入数据源集合', async () => {
     const { manager, viewer } = createHarness()
     const group = await manager.createEntityGroup('城市标注', {

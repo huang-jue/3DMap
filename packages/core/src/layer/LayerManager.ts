@@ -25,6 +25,8 @@ import {
   type LayerNodeInternal
 } from './tree'
 import type {
+  AddCustomLayerOptions,
+  CustomLayerHandle,
   LayerChangeAction,
   LayerEntityGroupOptions,
   LayerKind,
@@ -41,6 +43,7 @@ export interface LayerManagerDeps {
   events?: EventBus<CesiumKitEventMap>
 }
 
+export type { AddCustomLayerOptions } from './types'
 export type AddImageryLayerOptions = AddImageryOptions & LayerNodeOptions
 export type AddDataSourceLayerOptions = AddDataSourceOptions & LayerNodeOptions
 export type AddTilesetLayerOptions = AddTilesetOptions & LayerNodeOptions
@@ -57,6 +60,7 @@ function findSnapshot(nodes: LayerNode[], id: string): LayerNode | undefined {
 export class LayerManager {
   readonly root = createRootNode()
   private readonly entityGroups = new Map<string, LayerEntityGroup>()
+  private readonly customLayers = new Map<string, CustomLayerHandle>()
   private readonly log: Logger
   private destroyed = false
   private pending = new Map<string, { token: object; cancel(): void }>()
@@ -102,6 +106,35 @@ export class LayerManager {
     this.applyVisibility()
     this.emit('add', node)
     return this.mustSnapshot(node.id)
+  }
+
+  /** 把插件自管的图元挂到图层树；显隐与透明度通过句柄回调。 */
+  addCustom(name: string, options: AddCustomLayerOptions): LayerNode {
+    this.assertAlive()
+    const id = options.id ?? createId('custom')
+    if (findNode(this.root, id)) {
+      throw new Error(`@cesium-kit/core: 图层 id 已存在 "${id}"`)
+    }
+    const node = this.makeNode(
+      'custom',
+      {
+        ...options,
+        id,
+        name: options.name ?? name,
+        visible: options.visible ?? true
+      }
+    )
+    try {
+      insertNode(this.root, node, options.parentId, options.index)
+    } catch (error) {
+      options.handle.destroy?.()
+      throw error
+    }
+    this.customLayers.set(id, options.handle)
+    this.applyOrder()
+    this.applyVisibility()
+    this.emit('add', node)
+    return this.mustSnapshot(id)
   }
 
   async addImagery(
@@ -349,6 +382,7 @@ export class LayerManager {
     }
     this.root.children = []
     this.entityGroups.clear()
+    this.customLayers.clear()
   }
 
   private removeSubtree(node: LayerNodeInternal, removeSource: boolean): void {
@@ -365,10 +399,13 @@ export class LayerManager {
         const group = this.entityGroups.get(node.id)
         group?.destroy()
         this.deps.viewer.dataSources.remove(node.dataSource, true)
+      } else if (node.kind === 'custom') {
+        this.customLayers.get(node.id)?.destroy?.()
       }
     }
 
     this.entityGroups.delete(node.id)
+    this.customLayers.delete(node.id)
     removeNode(this.root, node.id)
   }
 
@@ -416,6 +453,7 @@ export class LayerManager {
     this.applyImageryOrder()
     this.applyDataSourceOrder()
     this.applyTilesetOrder()
+    this.applyCustomOrder()
     this.requestRender()
   }
 
@@ -463,6 +501,14 @@ export class LayerManager {
     }
   }
 
+  private applyCustomOrder(): void {
+    const nodes = collectLeaves(this.root, 'custom')
+    for (let i = nodes.length - 1; i >= 0; i -= 1) {
+      const node = nodes[i]
+      if (node) this.customLayers.get(node.id)?.raiseToTop?.()
+    }
+  }
+
   private applyVisibility(): void {
     refreshEffectiveState(this.root)
     collectLeaves(this.root, 'imagery').forEach((node) => {
@@ -470,6 +516,12 @@ export class LayerManager {
       if (!layer) return
       layer.show = node.effectiveVisible
       layer.alpha = node.effectiveAlpha
+    })
+    collectLeaves(this.root, 'custom').forEach((node) => {
+      const handle = this.customLayers.get(node.id)
+      if (!handle) return
+      handle.setVisible?.(node.effectiveVisible)
+      handle.setAlpha?.(node.effectiveAlpha)
     })
     collectLeaves(this.root, 'datasource').forEach((node) => {
       const dataSource = node.sourceId ? this.deps.dataSources.get(node.sourceId) : undefined

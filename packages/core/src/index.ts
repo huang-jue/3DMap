@@ -104,12 +104,14 @@ export type {
 export { LayerEntityGroup } from './layer/LayerEntityGroup'
 export { LayerManager } from './layer/LayerManager'
 export type {
+  AddCustomLayerOptions,
   AddDataSourceLayerOptions,
   AddImageryLayerOptions,
   AddTilesetLayerOptions,
   LayerManagerDeps
 } from './layer/LayerManager'
 export type {
+  CustomLayerHandle,
   LayerChangeAction,
   LayerChangePayload,
   LayerClusteringOptions,

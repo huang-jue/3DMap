@@ -21,11 +21,28 @@ export interface FeatureContext {
   draw: DrawService
   /** 插件作用域弹窗服务，卸载时自动关闭 */
   popup: PopupScope
+  /** 共享图层树；插件自管图元可通过 addCustom 接入 */
+  layerManager?: LayerManager
   log: Logger
 }
+```
 
 `FeatureLayerRegistry` 提供 `add / addMany / remove / removeById / imagery / dataSource / tileset / primitive / onDispose`。自定义 Primitive（风场、后处理等）必须通过 `ctx.layers.primitive()` 登记。
 
+需要把插件自管图元纳入统一图层树时，使用 `ctx.layerManager?.addCustom()`：
+
+```ts
+ctx.layerManager?.addCustom('天气栅格', {
+  parentId: groupId,
+  handle: {
+    setVisible: (visible) => (layer.show = visible),
+    setAlpha: (alpha) => (layer.alpha = alpha),
+    destroy: () => layer.destroy()
+  }
+})
+```
+
+```ts
 export interface CesiumFeature<T = unknown> {
   name: string
   install(ctx: FeatureContext, options: T): void | Promise<void>

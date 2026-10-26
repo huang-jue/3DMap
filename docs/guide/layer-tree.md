@@ -17,11 +17,10 @@ await layers.addDataSource(
   { parentId: group.id, name: '河流' }
 )
 
-await layers.addTileset(
-  'city',
-  '/tiles/city/tileset.json',
-  { parentId: group.id, name: '城市白模' }
-)
+await layers.addTileset('city', '/tiles/city/tileset.json', {
+  parentId: group.id,
+  name: '城市白模'
+})
 
 const markers = await layers.createEntityGroup('城市标注', {
   clustering: { pixelRange: 80, minimumClusterSize: 2 }
@@ -80,6 +79,24 @@ group.clear()
 ```
 
 配合 `MarkerClusterLayer` 使用时，把 `group.dataSource` 传入即可共享聚合与图层树节点。
+
+## 自定义图层
+
+插件自管的图元（天气栅格、后处理等）可以通过 `addCustom` 进入图层树，由内核统一处理级联显隐、透明度和销毁：
+
+```ts
+const node = manager.layerManager.addCustom('天气栅格', {
+  parentId: group.id,
+  handle: {
+    setVisible: (visible) => (layer.show = visible),
+    setAlpha: (alpha) => (layer.alpha = alpha),
+    raiseToTop: () => layer.raiseToTop(),
+    destroy: () => layer.destroy()
+  }
+})
+```
+
+`handle.destroy` 在删除节点或删除分组时调用。自定义图层不参与场景快照，需要由插件自行恢复。
 
 ## 事件
 

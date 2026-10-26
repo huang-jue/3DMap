@@ -6,6 +6,7 @@ import type { EventBus } from '../events/EventBus'
 import type { CesiumKitEventMap } from '../types'
 import type { DrawService } from '../draw/DrawService'
 import type { AddImageryOptions, ImagerySource } from '../imagery/ImageryManager'
+import type { LayerManager } from '../layer/LayerManager'
 import type { PickService } from '../pick/PickService'
 import type { PopupScope } from '../popup/types'
 import type { AddTilesetOptions, TilesetSource } from '../tileset/TilesetManager'
@@ -69,6 +70,8 @@ export interface FeatureContext {
   draw: DrawService
   /** 插件作用域的弹窗服务，卸载时自动关闭 */
   popup: PopupScope
+  /** 可选：共享图层树，插件自管图元可通过 addCustom 接入 */
+  layerManager?: LayerManager
   log: Logger
 }
 

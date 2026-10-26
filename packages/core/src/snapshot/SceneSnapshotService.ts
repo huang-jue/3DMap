@@ -108,6 +108,13 @@ export class SceneSnapshotService {
           })
           return []
         }
+        if (node.kind === 'custom') {
+          skipped.push({
+            id: node.id,
+            reason: '自定义图层由插件运行时管理，不参与场景快照'
+          })
+          return []
+        }
         if (
           node.kind !== 'group' &&
           !resources.some((entry) => entry.kind === node.kind && entry.id === node.sourceId)

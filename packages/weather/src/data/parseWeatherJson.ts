@@ -142,7 +142,9 @@ function parseLegend(value: unknown, kind: WeatherLayerKind): WeatherLegend {
     unit:
       typeof value.unit === 'string'
         ? value.unit
-        : (typeof value.unit === 'undefined' ? fallback.unit : undefined)
+        : typeof value.unit === 'undefined'
+          ? fallback.unit
+          : undefined
   }
 }
 
@@ -245,13 +247,11 @@ function parseWarningProperties(
   const startTime = requireDate(properties.startTime, `warnings[${index}].startTime`)
   const endTime = requireDate(properties.endTime, `warnings[${index}].endTime`)
   return {
-    id:
-      typeof properties.id === 'string' ? properties.id : `warning-${index}`,
+    id: typeof properties.id === 'string' ? properties.id : `warning-${index}`,
     type: typeof properties.type === 'string' ? properties.type : '气象预警',
     level: typeof properties.level === 'string' ? properties.level : 'yellow',
     title: typeof properties.title === 'string' ? properties.title : '气象预警',
-    description:
-      typeof properties.description === 'string' ? properties.description : undefined,
+    description: typeof properties.description === 'string' ? properties.description : undefined,
     startTime,
     endTime,
     geometry
@@ -265,14 +265,32 @@ function parseWarnings(value: unknown): WeatherWarning[] | undefined {
       if (!isRecord(feature) || !isRecord(feature.properties)) {
         throw new Error(`@cesium-kit/weather: warnings.features[${index}] 格式错误`)
       }
-      return parseWarningProperties(
-        feature.properties,
-        parseGeometry(feature.geometry),
-        index
-      )
+      return parseWarningProperties(feature.properties, parseGeometry(feature.geometry), index)
     })
   }
   throw new Error('@cesium-kit/weather: warnings 必须是 GeoJSON FeatureCollection')
+}
+
+/** 解析城市/点预报数组。 */
+export function parseWeatherPoints(input: unknown): WeatherPointForecast[] {
+  const payload = Array.isArray(input)
+    ? input
+    : isRecord(input) && Array.isArray(input.points)
+      ? input.points
+      : undefined
+  if (!payload) {
+    throw new Error('@cesium-kit/weather: 点预报数据必须是数组或 { points: [] }')
+  }
+  return payload.map(parsePoint)
+}
+
+/** 解析气象预警 GeoJSON。 */
+export function parseWeatherWarnings(input: unknown): WeatherWarning[] {
+  const warnings = parseWarnings(input)
+  if (!warnings) {
+    throw new Error('@cesium-kit/weather: 预警数据必须是 GeoJSON FeatureCollection')
+  }
+  return warnings
 }
 
 /** 解析完整数据集。也接受单个图层对象。 */
@@ -281,9 +299,7 @@ export function parseWeatherDataset(input: unknown): WeatherDataset {
 
   if (Array.isArray(input.layers)) {
     const layers = input.layers.map(parseWeatherLayer)
-    const points = Array.isArray(input.points)
-      ? input.points.map(parsePoint)
-      : undefined
+    const points = Array.isArray(input.points) ? input.points.map(parsePoint) : undefined
     const warnings = parseWarnings(input.warnings)
     return {
       name: typeof input.name === 'string' ? input.name : undefined,

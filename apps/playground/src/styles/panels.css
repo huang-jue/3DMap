@@ -53,6 +53,12 @@
   color: #fff;
 }
 
+@media (max-width: 720px) {
+  .cesium-panel {
+    width: min(300px, calc(100vw - 32px));
+  }
+}
+
 .panel-title {
   display: flex;
   align-items: center;

@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { parseWeatherDataset, parseWeatherLayer } from '../src/data/parseWeatherJson'
+import {
+  parseWeatherDataset,
+  parseWeatherLayer,
+  parseWeatherPoints,
+  parseWeatherWarnings
+} from '../src/data/parseWeatherJson'
 
 const bounds = { west: 100, south: 20, east: 120, north: 30 }
 
@@ -64,7 +69,9 @@ describe('parseWeatherLayer', () => {
     expect(() =>
       parseWeatherLayer({
         kind: 'unknown',
-        frames: [{ time: '2026-07-01T00:00:00Z', bounds, width: 2, height: 2, values: [1, 2, 3, 4] }]
+        frames: [
+          { time: '2026-07-01T00:00:00Z', bounds, width: 2, height: 2, values: [1, 2, 3, 4] }
+        ]
       })
     ).toThrow('未知图层类型')
   })
@@ -78,7 +85,9 @@ describe('parseWeatherDataset', () => {
       layers: [
         {
           kind: 'cloud',
-          frames: [{ time: '2026-07-01T00:00:00Z', bounds, width: 2, height: 2, values: [1, 2, 3, 4] }]
+          frames: [
+            { time: '2026-07-01T00:00:00Z', bounds, width: 2, height: 2, values: [1, 2, 3, 4] }
+          ]
         }
       ]
     })
@@ -95,5 +104,49 @@ describe('parseWeatherDataset', () => {
     })
     expect(dataset.layers).toHaveLength(1)
     expect(dataset.layers[0]!.kind).toBe('humidity')
+  })
+
+  it('解析点预报与预警', () => {
+    const points = parseWeatherPoints({
+      points: [
+        {
+          id: 'wuhan',
+          name: '武汉',
+          lon: 114.3,
+          lat: 30.6,
+          hourly: [{ time: '2026-07-01T00:00:00Z', temperature: 30 }]
+        }
+      ]
+    })
+    expect(points[0]?.hourly[0]?.temperature).toBe(30)
+
+    const warnings = parseWeatherWarnings({
+      type: 'FeatureCollection',
+      features: [
+        {
+          type: 'Feature',
+          properties: {
+            id: 'w1',
+            type: '暴雨',
+            level: 'yellow',
+            title: '暴雨预警',
+            startTime: '2026-07-01T00:00:00Z',
+            endTime: '2026-07-01T12:00:00Z'
+          },
+          geometry: {
+            type: 'Polygon',
+            coordinates: [
+              [
+                [112, 29],
+                [116, 29],
+                [116, 32],
+                [112, 29]
+              ]
+            ]
+          }
+        }
+      ]
+    })
+    expect(warnings[0]?.level).toBe('yellow')
   })
 })

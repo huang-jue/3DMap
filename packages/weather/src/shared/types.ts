@@ -1,11 +1,6 @@
 /** 天气图层类型。 */
 export type WeatherLayerKind =
-  | 'precip'
-  | 'radar'
-  | 'temperature'
-  | 'cloud'
-  | 'humidity'
-  | 'pressure'
+  'precip' | 'radar' | 'temperature' | 'cloud' | 'humidity' | 'pressure'
 
 /** 经纬度范围，单位为度。 */
 export interface WeatherBounds {

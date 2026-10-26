@@ -16,7 +16,12 @@ test('ClockService 驱动水位演进插件', async ({ page }) => {
   const readHeight = () =>
     page.evaluate(() => {
       const kit = window.__cesiumKit as unknown as {
-        entities: { list(): Array<{ name: string; polygon?: { extrudedHeight?: { getValue(t: unknown): number } } }> }
+        entities: {
+          list(): Array<{
+            name: string
+            polygon?: { extrudedHeight?: { getValue(t: unknown): number } }
+          }>
+        }
         getViewer(): { clock: { currentTime: unknown } }
       }
       const entity = kit.entities.list().find((item) => item.name === '水位面')
@@ -24,18 +29,24 @@ test('ClockService 驱动水位演进插件', async ({ page }) => {
     })
 
   const before = await readHeight()
-  await page.waitForTimeout(2000)
-  const after = await readHeight()
+  await expect.poll(() => readHeight(), { timeout: 15_000 }).toBeGreaterThan(before)
 
-  expect(after).toBeGreaterThan(before)
-
-  const timeAdvanced = await page.evaluate(async () => {
+  const first = await page.evaluate(() => {
     const kit = window.__cesiumKit as unknown as {
       clock: { state: { currentTime: Date } }
     }
-    const first = kit.clock.state.currentTime.getTime()
-    await new Promise((resolve) => setTimeout(resolve, 500))
-    return kit.clock.state.currentTime.getTime() > first
+    return kit.clock.state.currentTime.getTime()
   })
-  expect(timeAdvanced).toBe(true)
+  await expect
+    .poll(
+      () =>
+        page.evaluate((start) => {
+          const kit = window.__cesiumKit as unknown as {
+            clock: { state: { currentTime: Date } }
+          }
+          return kit.clock.state.currentTime.getTime() > start
+        }, first),
+      { timeout: 15_000 }
+    )
+    .toBe(true)
 })

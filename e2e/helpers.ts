@@ -53,7 +53,11 @@ declare global {
       tilesets: { list(): unknown[] }
       coords: {
         pickPosition(): { source: string } | undefined
-        toScreen(input: { lon: number; lat: number; height?: number }): { x: number; y: number } | undefined
+        toScreen(input: {
+          lon: number
+          lat: number
+          height?: number
+        }): { x: number; y: number } | undefined
       }
       draw: { sessionList: E2eDrawSession[] }
       layerManager: { tree(): E2eLayerNode[] }

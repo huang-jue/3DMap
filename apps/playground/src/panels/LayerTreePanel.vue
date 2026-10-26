@@ -10,7 +10,8 @@ const kindLabel: Record<LayerKind, string> = {
   imagery: '底图',
   datasource: '数据源',
   tileset: '3D Tiles',
-  entities: '实体组'
+  entities: '实体组',
+  custom: '自定义'
 }
 
 function findSiblings(
@@ -82,28 +83,13 @@ async function onRemove(node: LayerNode) {
               @click.stop
               @update:model-value="onVisible(data as LayerNode, Boolean($event))"
             />
-            <el-button
-              size="small"
-              text
-              title="上移"
-              @click.stop="moveBy(data as LayerNode, -1)"
-            >
+            <el-button size="small" text title="上移" @click.stop="moveBy(data as LayerNode, -1)">
               ↑
             </el-button>
-            <el-button
-              size="small"
-              text
-              title="下移"
-              @click.stop="moveBy(data as LayerNode, 1)"
-            >
+            <el-button size="small" text title="下移" @click.stop="moveBy(data as LayerNode, 1)">
               ↓
             </el-button>
-            <el-button
-              size="small"
-              text
-              title="删除"
-              @click.stop="onRemove(data as LayerNode)"
-            >
+            <el-button size="small" text title="删除" @click.stop="onRemove(data as LayerNode)">
               ×
             </el-button>
           </div>

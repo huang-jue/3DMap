@@ -1,13 +1,18 @@
-import { parseWeatherDataset, parseWeatherLayer } from './parseWeatherJson'
-import type { WeatherDataset, WeatherLayerData } from '../shared/types'
+import {
+  parseWeatherDataset,
+  parseWeatherLayer,
+  parseWeatherPoints,
+  parseWeatherWarnings
+} from './parseWeatherJson'
+import type {
+  WeatherDataset,
+  WeatherLayerData,
+  WeatherPointForecast,
+  WeatherWarning
+} from '../shared/types'
 
 function isLayerData(value: unknown): value is WeatherLayerData {
-  return (
-    typeof value === 'object' &&
-    value !== null &&
-    'kind' in value &&
-    'frames' in value
-  )
+  return typeof value === 'object' && value !== null && 'kind' in value && 'frames' in value
 }
 
 function isDataset(value: unknown): value is WeatherDataset {
@@ -49,4 +54,22 @@ export async function loadWeatherDataset(
   if (isLayerData(input)) return parseWeatherDataset(input)
   if (isJsonText(input)) return parseWeatherDataset(JSON.parse(input))
   return parseWeatherDataset(await fetchJson(input))
+}
+
+/** 加载城市/点预报。 */
+export async function loadWeatherPoints(
+  input: WeatherPointForecast[] | string
+): Promise<WeatherPointForecast[]> {
+  if (Array.isArray(input)) return parseWeatherPoints(input)
+  if (isJsonText(input)) return parseWeatherPoints(JSON.parse(input))
+  return parseWeatherPoints(await fetchJson(input))
+}
+
+/** 加载气象预警。 */
+export async function loadWeatherWarnings(
+  input: WeatherWarning[] | string
+): Promise<WeatherWarning[]> {
+  if (Array.isArray(input)) return input
+  if (isJsonText(input)) return parseWeatherWarnings(JSON.parse(input))
+  return parseWeatherWarnings(await fetchJson(input))
 }

@@ -6,17 +6,17 @@
 static create(container: HTMLElement, options?: CesiumKitOptions): Promise<CesiumViewerManager>
 ```
 
-| 成员 | 说明 |
-| --- | --- |
-| `viewer` | 底层 `Cesium.Viewer` |
-| `imagery` / `terrain` / `camera` / `scene` / `entities` / `coords` / `features` | 能力模块 |
-| `draw` / `popup` / `layerManager` | 绘制量算、弹窗与图层树 |
-| `events` | `EventBus<CesiumKitEventMap>` |
-| `isReady` / `isDestroyed()` | 状态判断 |
-| `getViewer()` | 获取 Viewer，销毁后调用会抛错 |
-| `flyHome(duration?)` | 视角复位 |
-| `setSceneMode(mode, duration?)` | 投影切换（保留视角） |
-| `destroy()` | 幂等销毁 |
+| 成员                                                                            | 说明                          |
+| ------------------------------------------------------------------------------- | ----------------------------- |
+| `viewer`                                                                        | 底层 `Cesium.Viewer`          |
+| `imagery` / `terrain` / `camera` / `scene` / `entities` / `coords` / `features` | 能力模块                      |
+| `draw` / `popup` / `layerManager`                                               | 绘制量算、弹窗与图层树        |
+| `events`                                                                        | `EventBus<CesiumKitEventMap>` |
+| `isReady` / `isDestroyed()`                                                     | 状态判断                      |
+| `getViewer()`                                                                   | 获取 Viewer，销毁后调用会抛错 |
+| `flyHome(duration?)`                                                            | 视角复位                      |
+| `setSceneMode(mode, duration?)`                                                 | 投影切换（保留视角）          |
+| `destroy()`                                                                     | 幂等销毁                      |
 
 ## `ImageryManager`
 
@@ -155,6 +155,7 @@ addImagery(source, options?): Promise<LayerNode>
 addDataSource(name, input, options?): Promise<LayerNode>
 addTileset(name, source, options?): Promise<LayerNode>
 createEntityGroup(name, options?): Promise<LayerEntityGroup>
+addCustom(name, { handle, ...options }): LayerNode
 move(id, parentId, index): void
 setVisible(id, visible): void
 setAlpha(id, alpha): void
@@ -164,7 +165,9 @@ remove(id, { removeSource? }?): void
 clear() / destroy()
 ```
 
-`LayerNode` 包含 `id / name / kind / parentId / visible / effectiveVisible / alpha / effectiveAlpha / sourceId / entityCount / children`。
+`LayerNode` 包含 `id / name / kind / parentId / visible / effectiveVisible / alpha / effectiveAlpha / sourceId / entityCount / children`。`kind` 支持 `group / imagery / datasource / tileset / entities / custom`。
+
+`CustomLayerHandle`：`setVisible? / setAlpha? / raiseToTop? / destroy?`。用于把插件自管图元纳入图层树，内核只负责级联状态与销毁回调。
 
 `LayerEntityGroup`：`dataSource / count / entities / add / addMany / remove / clear / setClustering / destroy`。
 
@@ -245,11 +248,11 @@ size: number
 
 ## 类型
 
-`CesiumKitOptions`、`ImageryConfig`、`CameraView`、`CameraTarget`、`SceneModeName`、`ColorInput`、`PositionInput`、`BoundsInput`、`LonLatHeight`、`CesiumKitEventMap`、`CesiumFeature`、`FeatureContext`、`FeatureLayerRegistry`、`PrimitiveLike`。
+`CesiumKitOptions`、`ImageryConfig`、`CameraView`、`CameraTarget`、`SceneModeName`、`ColorInput`、`PositionInput`、`BoundsInput`、`LonLatHeight`、`CesiumKitEventMap`、`CesiumFeature`、`FeatureContext`、`FeatureLayerRegistry`、`PrimitiveLike`、`CustomLayerHandle`。
 
 `FeatureLayerRegistry` 额外提供 `primitive(primitive: PrimitiveLike)`，用于登记自定义 Cesium Primitive，卸载时由内核移除并销毁；`remove / removeById` 用于手动移除已登记实体。
 
-`FeatureContext` 新增 `draw: DrawService` 与 `popup: PopupScope`，均为插件作用域实例，卸载时自动取消绘制并关闭弹窗。
+`FeatureContext` 新增 `draw: DrawService`、`popup: PopupScope` 与可选的 `layerManager: LayerManager`，均为插件作用域实例，卸载时自动取消绘制并关闭弹窗；自管图元可通过 `layerManager.addCustom` 进入统一图层树。
 
 ## 日志
 
@@ -325,7 +328,6 @@ clear() / destroy()
 createWmsImagery({ url, layers, parameters?, format?, transparent?, version?, crs?, minimumLevel?, maximumLevel?, ... })
 createWmtsImagery({ url, layer, style?, tileMatrixSetID, format?, tilingScheme?, minimumLevel?, maximumLevel?, ... })
 ```
-
 
 ## 成果、场景快照与选择
 

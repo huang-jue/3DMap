@@ -10,11 +10,7 @@ function isNoData(value: number, noData: number | undefined): boolean {
 }
 
 /** 在天气网格上做双线性插值；无数据或越界返回 null。 */
-export function sampleFrame(
-  frame: WeatherFrame,
-  lon: number,
-  lat: number
-): number | null {
+export function sampleFrame(frame: WeatherFrame, lon: number, lat: number): number | null {
   const { bounds, width, height, values, noData } = frame
   if (!width || !height || !values) return null
   if (lon < bounds.west || lon > bounds.east || lat < bounds.south || lat > bounds.north) {

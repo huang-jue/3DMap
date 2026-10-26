@@ -1,11 +1,13 @@
 ---
+'@cesium-kit/core': minor
 '@cesium-kit/weather': minor
 ---
 
 新增可选天气预报插件 `@cesium-kit/weather`：
 
 - 通用栅格天气图层，内置降水、雷达、温度、云量、湿度、气压色带
-- 支持网格数据 Canvas 渲染与图片帧
-- 多时刻数据跟随 `ClockService`，支持可选时间范围与逐帧切换
-- 多图层组合插件与单图层插件，支持独立显隐、透明度和数值采样
-- playground 增加天气预报面板、静态样例数据与 6/12/24/48/72 小时范围快捷选择。
+- 支持网格数据 Canvas 渲染、图片帧、跨帧淡入淡出与下一帧预加载
+- 多时刻数据跟随 `ClockService`，支持可选时间范围、懒加载、错误隔离与实时刷新
+- 城市点预报与气象预警图层，支持内置弹窗和 `onSelect` 回调
+- playground 增加天气预报面板、静态样例数据、城市/预警交互与时间范围快捷选择
+- core 新增 `LayerManager.addCustom`、`CustomLayerHandle` 与 `FeatureContext.layerManager`，插件自管图元可接入统一图层树

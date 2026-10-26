@@ -1,12 +1,8 @@
 import type { CesiumFeature, FeatureContext } from '@cesium-kit/core'
 import { loadWeatherLayer } from '../data/loadWeather'
-import {
-  clampRange,
-  findFrameIndexInRange,
-  framesRange,
-  toDate
-} from '../data/time'
+import { clampRange, findFrameIndexInRange, framesRange, toDate } from '../data/time'
 import { RasterWeatherLayer, type RasterWeatherLayerOptions } from '../layers/RasterWeatherLayer'
+import { ensureWeatherLayerGroup } from '../shared/layerTree'
 import type {
   WeatherFrame,
   WeatherLayerData,
@@ -28,6 +24,12 @@ export interface WeatherRasterFeatureOptions extends RasterWeatherLayerOptions {
   timeRange?: [Date | string, Date | string]
   /** 加载后是否飞到数据范围，默认 false */
   flyTo?: boolean
+  /** 预加载后续帧数量，默认 1 */
+  preload?: number
+  /** 是否接入共享图层树，默认 true（存在 layerManager 时生效） */
+  layerTree?: boolean
+  /** 帧变化回调，用于宿主同步外部 UI */
+  onFrameChange?: (kind: WeatherLayerKind, frame: WeatherFrame) => void
 }
 
 export interface WeatherRasterFeature extends CesiumFeature<WeatherRasterFeatureOptions> {
@@ -37,6 +39,7 @@ export interface WeatherRasterFeature extends CesiumFeature<WeatherRasterFeature
   readonly frames: WeatherFrame[]
   setVisible(visible: boolean): void
   setAlpha(alpha: number): void
+  setFollowClock(enabled: boolean): void
   setTime(time: Date): void
   setTimeRange(start: Date | string, end: Date | string): void
   getTimeRange(): WeatherTimeRange | null
@@ -44,6 +47,8 @@ export interface WeatherRasterFeature extends CesiumFeature<WeatherRasterFeature
   getCurrentFrame(): WeatherFrame | null
   getValueAt(lon: number, lat: number): number | null
   zoomTo(duration?: number): void
+  updateData(data: WeatherLayerData | string): Promise<void>
+  refresh(): Promise<void>
 }
 
 function layerOptions(options: WeatherRasterFeatureOptions): RasterWeatherLayerOptions {
@@ -54,7 +59,10 @@ function layerOptions(options: WeatherRasterFeatureOptions): RasterWeatherLayerO
     min: options.min,
     max: options.max,
     scale: options.scale,
-    canvasScale: options.canvasScale
+    canvasScale: options.canvasScale,
+    crossfade: options.crossfade,
+    crossfadeDuration: options.crossfadeDuration,
+    onError: options.onError
   }
 }
 
@@ -80,15 +88,22 @@ export function createWeatherRasterFeature(
 ): WeatherRasterFeature {
   let layer: RasterWeatherLayer | null = null
   let data: WeatherLayerData | null = null
+  let source: WeatherLayerData | string = defaultOptions.data
   let frames: WeatherFrame[] = []
   let activeRange: WeatherTimeRange | null = null
   let availableRange: WeatherTimeRange | null = null
   let currentIndex = -1
   let followClock = true
   let syncClockRange = false
+  let preload = 1
   let unsubscribeTick: (() => void) | undefined
+  let ctxRef: FeatureContext | null = null
   let clock: FeatureContext['clock'] | null = null
+  let nodeId: string | undefined
+  let visibleState = defaultOptions.visible ?? true
+  let alphaState = defaultOptions.alpha ?? 0.85
   let disposed = false
+  let optionsState: WeatherRasterFeatureOptions = defaultOptions
 
   const currentFrame = (): WeatherFrame | null =>
     currentIndex >= 0 ? (frames[currentIndex] ?? null) : null
@@ -101,6 +116,26 @@ export function createWeatherRasterFeature(
     if (!frame) return
     currentIndex = index
     layer?.updateFrame(frame)
+    optionsState.onFrameChange?.(defaultOptions.kind, frame)
+    preloadAround(index)
+  }
+
+  const preloadAround = (index: number): void => {
+    if (!layer || preload <= 0) return
+    for (let offset = 1; offset <= preload; offset += 1) {
+      const frame = frames[index + offset]
+      if (frame) layer.preloadFrame(frame)
+    }
+  }
+
+  const subscribeClock = (): void => {
+    if (!ctxRef || !followClock || frames.length <= 1 || unsubscribeTick) return
+    unsubscribeTick = ctxRef.clock.onTick(({ currentTime }) => applyFrame(currentTime))
+  }
+
+  const unsubscribeClock = (): void => {
+    unsubscribeTick?.()
+    unsubscribeTick = undefined
   }
 
   const install = async (
@@ -108,8 +143,11 @@ export function createWeatherRasterFeature(
     options?: WeatherRasterFeatureOptions
   ): Promise<void> => {
     disposed = false
+    ctxRef = ctx
     clock = ctx.clock
     const merged: WeatherRasterFeatureOptions = { ...defaultOptions, ...options }
+    optionsState = merged
+    source = merged.data
     const loaded = await loadWeatherLayer(merged.data)
     if (disposed) return
     if (loaded.frames.length === 0) {
@@ -123,6 +161,9 @@ export function createWeatherRasterFeature(
     activeRange = requested ? clampRange(requested, availableRange) : availableRange
     followClock = merged.followClock ?? true
     syncClockRange = merged.syncClockRange ?? false
+    preload = Math.max(0, Math.min(5, merged.preload ?? 1))
+    visibleState = merged.visible ?? loaded.defaultVisible ?? true
+    alphaState = Math.min(1, Math.max(0, merged.alpha ?? loaded.defaultAlpha ?? 0.85))
 
     const initialTime = ctx.clock.state.currentTime
     currentIndex = findFrameIndexInRange(
@@ -133,22 +174,98 @@ export function createWeatherRasterFeature(
     const initialFrame = currentFrame()
     if (!initialFrame) throw new Error('@cesium-kit/weather: 找不到可用时间帧')
 
-    layer = new RasterWeatherLayer(ctx.viewer, loaded, layerOptions(merged))
+    layer = new RasterWeatherLayer(ctx.viewer, loaded, {
+      ...layerOptions(merged),
+      visible: visibleState,
+      alpha: alphaState
+    })
     ctx.layers.onDispose(() => layer?.destroy())
     layer.add()
+    layer.updateFrame(initialFrame)
+
+    if (ctx.layerManager && merged.layerTree !== false) {
+      try {
+        nodeId = ctx.layerManager.addCustom(loaded.name ?? loaded.kind, {
+          id: `weather-layer:${loaded.kind}`,
+          parentId: ensureWeatherLayerGroup(ctx),
+          visible: visibleState,
+          alpha: alphaState,
+          handle: {
+            setVisible: (visible) => {
+              visibleState = visible
+              if (layer) layer.show = visible
+            },
+            setAlpha: (alpha) => {
+              alphaState = alpha
+              if (layer) layer.alpha = alpha
+            },
+            raiseToTop: () => {
+              const imageryLayer = layer?.renderLayer
+              if (imageryLayer && !ctx.viewer.isDestroyed()) {
+                ctx.viewer.imageryLayers.raiseToTop(imageryLayer)
+              }
+            },
+            destroy: () => {
+              layer?.destroy()
+              layer = null
+            }
+          }
+        }).id
+      } catch (error) {
+        ctx.log.warn('天气图层接入图层树失败', error)
+      }
+    }
+    optionsState.onFrameChange?.(loaded.kind, initialFrame)
+    preloadAround(currentIndex)
 
     if (syncClockRange && activeRange) {
       ctx.clock.setRange(activeRange.start, activeRange.end)
     }
+    subscribeClock()
     if (merged.flyTo) layer.zoomTo(1.5)
-    if (followClock) {
-      unsubscribeTick = ctx.clock.onTick(({ currentTime }) => applyFrame(currentTime))
-      ctx.layers.onDispose(() => unsubscribeTick?.())
-    }
 
     ctx.log.info(
       `天气图层已加载：${loaded.kind}，${frames.length} 个时刻，${activeRange ? `${activeRange.start.toISOString()} ~ ${activeRange.end.toISOString()}` : '无范围'}`
     )
+  }
+
+  const updateData = async (nextData: WeatherLayerData | string): Promise<void> => {
+    source = nextData
+    const loaded = await loadWeatherLayer(nextData)
+    if (disposed || !ctxRef) return
+    if (loaded.frames.length === 0) {
+      throw new Error('@cesium-kit/weather: 图层数据为空')
+    }
+    data = loaded
+    frames = loaded.frames
+    availableRange = framesRange(frames)
+    activeRange = clampRange(
+      activeRange ?? availableRange ?? { start: new Date(), end: new Date() },
+      availableRange
+    )
+    currentIndex = findFrameIndexInRange(
+      frames,
+      clock?.state.currentTime ?? new Date(),
+      activeRange ?? undefined
+    )
+
+    const previous = layer
+    layer = new RasterWeatherLayer(ctxRef.viewer, loaded, {
+      ...layerOptions(optionsState),
+      visible: visibleState,
+      alpha: alphaState
+    })
+    layer.add()
+    const frame = currentFrame()
+    if (frame) {
+      layer.updateFrame(frame)
+      optionsState.onFrameChange?.(loaded.kind, frame)
+      preloadAround(currentIndex)
+    }
+    previous?.destroy()
+    if (syncClockRange && activeRange && clock) {
+      clock.setRange(activeRange.start, activeRange.end)
+    }
   }
 
   const feature: WeatherRasterFeature = {
@@ -167,10 +284,19 @@ export function createWeatherRasterFeature(
     },
     install,
     setVisible(visible: boolean) {
+      visibleState = visible
       if (layer) layer.show = visible
+      if (nodeId) ctxRef?.layerManager?.setVisible(nodeId, visible)
     },
     setAlpha(alpha: number) {
-      if (layer) layer.alpha = alpha
+      alphaState = Math.min(1, Math.max(0, alpha))
+      if (layer) layer.alpha = alphaState
+      if (nodeId) ctxRef?.layerManager?.setAlpha(nodeId, alphaState)
+    },
+    setFollowClock(enabled: boolean) {
+      followClock = enabled
+      if (enabled) subscribeClock()
+      else unsubscribeClock()
     },
     setTime(time: Date) {
       if (clock) clock.seek(time)
@@ -179,7 +305,8 @@ export function createWeatherRasterFeature(
     setTimeRange(start: Date | string, end: Date | string) {
       const from = toDate(start)
       const to = toDate(end)
-      const range = from.getTime() <= to.getTime() ? { start: from, end: to } : { start: to, end: from }
+      const range =
+        from.getTime() <= to.getTime() ? { start: from, end: to } : { start: to, end: from }
       activeRange = clampRange(range, availableRange)
       if (syncClockRange && activeRange && clock) {
         clock.setRange(activeRange.start, activeRange.end)
@@ -188,7 +315,9 @@ export function createWeatherRasterFeature(
       if (time) applyFrame(time)
     },
     getTimeRange() {
-      return activeRange ? { start: new Date(activeRange.start), end: new Date(activeRange.end) } : null
+      return activeRange
+        ? { start: new Date(activeRange.start), end: new Date(activeRange.end) }
+        : null
     },
     getAvailableRange() {
       return availableRange
@@ -204,14 +333,22 @@ export function createWeatherRasterFeature(
     zoomTo(duration = 0) {
       layer?.zoomTo(duration)
     },
+    updateData,
+    async refresh() {
+      await updateData(source)
+    },
     dispose() {
       disposed = true
-      unsubscribeTick?.()
-      unsubscribeTick = undefined
+      unsubscribeClock()
+      if (nodeId && ctxRef?.layerManager?.get(nodeId)) {
+        ctxRef.layerManager.remove(nodeId, { removeSource: false })
+      }
+      nodeId = undefined
       layer?.destroy()
       layer = null
       currentIndex = -1
       clock = null
+      ctxRef = null
     }
   }
 

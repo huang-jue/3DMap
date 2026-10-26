@@ -124,7 +124,8 @@ export class CesiumViewerManager {
       clock: this.clock,
       dataSources: this.dataSources,
       tilesets: this.tilesets,
-      popup: this.popup
+      popup: this.popup,
+      layerManager: this.layerManager
     })
   }
 
