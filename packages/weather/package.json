@@ -1,0 +1,66 @@
+{
+  "name": "@cesium-kit/weather",
+  "version": "0.1.0",
+  "description": "Cesium 天气预报插件：多图层栅格、时间轴联动与图例",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/cesium-kit/cesium-kit.git",
+    "directory": "packages/weather"
+  },
+  "homepage": "https://github.com/cesium-kit/cesium-kit#readme",
+  "bugs": {
+    "url": "https://github.com/cesium-kit/cesium-kit/issues"
+  },
+  "author": "cesium-kit contributors",
+  "type": "module",
+  "sideEffects": false,
+  "files": [
+    "dist"
+  ],
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "scripts": {
+    "build": "vite build",
+    "dev": "vite build --watch",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@cesium-kit/core": "workspace:^"
+  },
+  "peerDependencies": {
+    "cesium": "^1.146.0"
+  },
+  "keywords": [
+    "cesium",
+    "weather",
+    "forecast",
+    "precipitation",
+    "radar",
+    "gis",
+    "3d",
+    "map"
+  ],
+  "devDependencies": {
+    "@types/node": "^26.6.5",
+    "cesium": "^1.146.0",
+    "jsdom": "^30.1.3",
+    "typescript": "^6.0.3",
+    "vite": "^8.3.4",
+    "vite-plugin-dts": "^5.1.2",
+    "vitest": "^5.0.5"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

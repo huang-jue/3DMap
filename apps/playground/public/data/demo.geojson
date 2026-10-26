@@ -1,0 +1,123 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "长江"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            104,
+            30.6
+          ],
+          [
+            106.5,
+            30.5
+          ],
+          [
+            109,
+            30.6
+          ],
+          [
+            111.5,
+            30.4
+          ],
+          [
+            114,
+            30.5
+          ],
+          [
+            116.5,
+            31.2
+          ],
+          [
+            118.8,
+            31.8
+          ],
+          [
+            121.5,
+            31.4
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "成都",
+        "kind": "city"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          104.0665,
+          30.5728
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "武汉",
+        "kind": "city"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          114.3055,
+          30.5928
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "上海",
+        "kind": "city"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          121.4737,
+          31.2304
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "示范区"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              112,
+              29.5
+            ],
+            [
+              114.5,
+              29.5
+            ],
+            [
+              114.5,
+              31.2
+            ],
+            [
+              112,
+              31.2
+            ],
+            [
+              112,
+              29.5
+            ]
+          ]
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,66 @@
+{
+  "name": "@cesium-kit/vue",
+  "version": "0.1.0",
+  "description": "Cesium 基础能力的 Vue 3 适配层",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/cesium-kit/cesium-kit.git",
+    "directory": "packages/vue"
+  },
+  "homepage": "https://github.com/cesium-kit/cesium-kit#readme",
+  "bugs": {
+    "url": "https://github.com/cesium-kit/cesium-kit/issues"
+  },
+  "author": "cesium-kit contributors",
+  "type": "module",
+  "sideEffects": [
+    "**/*.css"
+  ],
+  "files": [
+    "dist"
+  ],
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./style.css": "./dist/style.css",
+    "./package.json": "./package.json"
+  },
+  "scripts": {
+    "build": "vite build",
+    "dev": "vite build --watch",
+    "typecheck": "vue-tsc --noEmit"
+  },
+  "dependencies": {
+    "@cesium-kit/core": "workspace:^"
+  },
+  "peerDependencies": {
+    "cesium": "^1.146.0",
+    "vue": "^3.4.0"
+  },
+  "keywords": [
+    "cesium",
+    "vue",
+    "gis",
+    "3d",
+    "map"
+  ],
+  "devDependencies": {
+    "@types/node": "^26.6.5",
+    "@vitejs/plugin-vue": "^6.0.10",
+    "cesium": "^1.146.0",
+    "typescript": "^6.0.3",
+    "vite": "^8.3.4",
+    "vite-plugin-dts": "^5.1.2",
+    "vue": "^3.4.0",
+    "vue-tsc": "^3.3.13"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

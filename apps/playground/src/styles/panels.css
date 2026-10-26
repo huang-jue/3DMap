@@ -1,0 +1,88 @@
+.cesium-panel {
+  width: 300px;
+  border: none;
+  background: rgba(17, 24, 39, 0.9);
+  backdrop-filter: blur(8px);
+  color: #e5e7eb;
+}
+
+.cesium-panel .el-card__header {
+  padding: 12px 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.cesium-panel .el-card__body,
+.cesium-panel .el-descriptions__body,
+.cesium-panel .el-descriptions__label,
+.cesium-panel .el-descriptions__content {
+  background: transparent;
+  color: #e5e7eb;
+}
+
+.cesium-panel .el-descriptions__label {
+  width: 72px;
+  color: #9ca3af;
+}
+
+.cesium-panel .el-descriptions__cell {
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+.cesium-panel .el-descriptions__body .el-descriptions__table {
+  background: transparent;
+}
+
+.cesium-panel .el-divider {
+  margin: 16px 0 12px;
+}
+
+.cesium-panel .el-divider__text {
+  background: transparent;
+  color: #9ca3af;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.cesium-panel .el-checkbox__label,
+.cesium-panel .el-radio-button__inner {
+  color: #e5e7eb;
+}
+
+.cesium-panel .el-radio-button__original-radio:checked + .el-radio-button__inner {
+  color: #fff;
+}
+
+.panel-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #f9fafb;
+  font-weight: 600;
+}
+
+.field {
+  margin-bottom: 14px;
+}
+
+.field-label {
+  margin-bottom: 8px;
+  font-size: 12px;
+  color: #9ca3af;
+}
+
+.toggles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.divider-text {
+  margin-left: 4px;
+  font-size: 12px;
+}
+
+.mono {
+  font-family: 'SFMono-Regular', Consolas, monospace;
+  font-size: 12px;
+}

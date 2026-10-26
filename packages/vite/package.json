@@ -1,0 +1,56 @@
+{
+  "name": "@cesium-kit/vite",
+  "version": "0.1.0",
+  "description": "Cesium 静态资源与 CESIUM_BASE_URL 的 Vite 接入插件",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/cesium-kit/cesium-kit.git",
+    "directory": "packages/vite"
+  },
+  "homepage": "https://github.com/cesium-kit/cesium-kit#readme",
+  "bugs": {
+    "url": "https://github.com/cesium-kit/cesium-kit/issues"
+  },
+  "author": "cesium-kit contributors",
+  "type": "module",
+  "sideEffects": false,
+  "files": [
+    "dist"
+  ],
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "scripts": {
+    "build": "vite build",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "vite-plugin-static-copy": "^4.1.1"
+  },
+  "peerDependencies": {
+    "cesium": "^1.146.0",
+    "vite": ">=5.0.0"
+  },
+  "keywords": [
+    "cesium",
+    "vite",
+    "plugin"
+  ],
+  "devDependencies": {
+    "@types/node": "^26.6.5",
+    "typescript": "^6.0.3",
+    "vite": ">=5.0.0",
+    "vite-plugin-dts": "^5.1.2"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

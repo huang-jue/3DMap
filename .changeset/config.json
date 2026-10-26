@@ -1,0 +1,19 @@
+{
+  "$schema": "https://unpkg.com/@changesets/config@3.0.0/schema.json",
+  "changelog": "@changesets/cli/changelog",
+  "commit": false,
+  "fixed": [],
+  "linked": [
+    [
+      "@cesium-kit/core",
+      "@cesium-kit/vue",
+      "@cesium-kit/weather",
+      "@cesium-kit/wind",
+      "@cesium-kit/vite"
+    ]
+  ],
+  "access": "public",
+  "baseBranch": "master",
+  "updateInternalDependencies": "patch",
+  "ignore": ["playground", "docs"]
+}
