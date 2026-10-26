@@ -12,7 +12,7 @@ export default defineConfig({
       formats: ['es']
     },
     rollupOptions: {
-      external: [/^cesium/, /^@cesium\//, /^@cesium-kit\//],
+      external: [/^cesium/, /^@cesium\//, /^@sgyx\/cesium-kit-/],
       output: {
         entryFileNames: '[name].js'
       }

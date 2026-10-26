@@ -64,7 +64,7 @@ import {
   formatDistance,
   formatArea,
   formatHeight
-} from '@cesium-kit/core'
+} from '@sgyx/cesium-kit-core'
 
 const distance = measureDistance([
   { lon: 116.39, lat: 39.9 },
@@ -108,7 +108,7 @@ export const floodDraw: CesiumFeature = {
 ## Vue
 
 ```ts
-import { useDraw } from '@cesium-kit/vue'
+import { useDraw } from '@sgyx/cesium-kit-vue'
 
 const { active, drawing, results, start, cancel, clear } = useDraw()
 

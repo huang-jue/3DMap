@@ -1,6 +1,6 @@
 # 天气预报
 
-`@cesium-kit/weather` 是可选插件包，提供多种天气栅格图层、时间轴联动、图例和透明度控制。
+`@sgyx/cesium-kit-weather` 是可选插件包，提供多种天气栅格图层、时间轴联动、图例和透明度控制。
 
 首期支持：
 
@@ -20,13 +20,13 @@
 ## 安装
 
 ```bash
-pnpm add @cesium-kit/weather
+pnpm add @sgyx/cesium-kit-weather
 ```
 
 ## 启用多图层
 
 ```ts
-import { createWeatherPlugin } from '@cesium-kit/weather'
+import { createWeatherPlugin } from '@sgyx/cesium-kit-weather'
 
 const weather = createWeatherPlugin({
   layers: [
@@ -72,7 +72,7 @@ weather.setTime(new Date('2026-07-01T06:00:00Z'))
 ## 单独使用一个图层
 
 ```ts
-import { createWeatherRasterFeature } from '@cesium-kit/weather'
+import { createWeatherRasterFeature } from '@sgyx/cesium-kit-weather'
 
 const precip = createWeatherRasterFeature({
   kind: 'precip',
@@ -189,7 +189,7 @@ const available = weather.getAvailableRange()
 ## 点预报
 
 ```ts
-import { createWeatherPointFeature } from '@cesium-kit/weather'
+import { createWeatherPointFeature } from '@sgyx/cesium-kit-weather'
 
 const points = createWeatherPointFeature({
   points: '/data/weather/cities.json',
@@ -227,7 +227,7 @@ const points = createWeatherPointFeature({
 ## 气象预警
 
 ```ts
-import { createWeatherWarningFeature } from '@cesium-kit/weather'
+import { createWeatherWarningFeature } from '@sgyx/cesium-kit-weather'
 
 const warnings = createWeatherWarningFeature({
   warnings: '/data/weather/warnings.geojson',

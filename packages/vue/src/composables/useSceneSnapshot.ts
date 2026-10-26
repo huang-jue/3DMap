@@ -1,4 +1,4 @@
-import type { SnapshotRestoreOptions } from '@cesium-kit/core'
+import type { SnapshotRestoreOptions } from '@sgyx/cesium-kit-core'
 import { useCesiumContext } from '../context'
 
 export function useSceneSnapshot() {

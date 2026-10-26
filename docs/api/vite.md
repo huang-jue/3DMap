@@ -1,9 +1,9 @@
-# @cesium-kit/vite
+# @sgyx/cesium-kit-vite
 
 ## `cesiumAssets(options?): Plugin[]`
 
 ```ts
-import { cesiumAssets } from '@cesium-kit/vite'
+import { cesiumAssets } from '@sgyx/cesium-kit-vite'
 
 export default defineConfig({
   plugins: [vue(), cesiumAssets()]

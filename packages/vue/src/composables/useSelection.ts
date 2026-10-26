@@ -1,5 +1,5 @@
 import { onBeforeUnmount, onMounted, shallowRef } from 'vue'
-import type { PickEventPayload, SelectionResult } from '@cesium-kit/core'
+import type { PickEventPayload, SelectionResult } from '@sgyx/cesium-kit-core'
 import { useCesiumContext, whenReadySafe } from '../context'
 
 export function useSelection() {

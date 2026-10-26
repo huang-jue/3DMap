@@ -1,4 +1,4 @@
-import type { CesiumFeature, FeatureContext } from '@cesium-kit/core'
+import type { CesiumFeature, FeatureContext } from '@sgyx/cesium-kit-core'
 import { loadWeatherLayer } from '../data/loadWeather'
 import { clampRange, findFrameIndexInRange, framesRange, toDate } from '../data/time'
 import { RasterWeatherLayer, type RasterWeatherLayerOptions } from '../layers/RasterWeatherLayer'

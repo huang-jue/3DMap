@@ -19,7 +19,7 @@ export interface CesiumKitOptions {
   ionToken?: string
   /**
    * Cesium 静态资源根路径，例如 `/cesium`。
-   * 使用 `@cesium-kit/vite` 插件时可不传。
+   * 使用 `@sgyx/cesium-kit-vite` 插件时可不传。
    */
   cesiumBaseUrl?: string
   /** 直接透传给 new Cesium.Viewer 的额外选项，优先级最高 */

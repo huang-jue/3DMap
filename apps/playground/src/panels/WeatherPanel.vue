@@ -2,8 +2,8 @@
 import { computed, reactive, ref, shallowRef } from 'vue'
 import { Refresh, Sunny } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
-import { useClock, useViewer } from '@cesium-kit/vue'
-import { createWeatherPlugin, type WeatherLayerKind, type WeatherPlugin } from '@cesium-kit/weather'
+import { useClock, useViewer } from '@sgyx/cesium-kit-vue'
+import { createWeatherPlugin, type WeatherLayerKind, type WeatherPlugin } from '@sgyx/cesium-kit-weather'
 
 interface WeatherManifestLayer {
   kind: WeatherLayerKind

@@ -1,4 +1,4 @@
-﻿import type { CesiumFeature, FeatureContext } from '@cesium-kit/core'
+﻿import type { CesiumFeature, FeatureContext } from '@sgyx/cesium-kit-core'
 import { loadWindGrids } from '../data/loadWind'
 import { findNearestTimeIndex } from '../data/timeSeries'
 import type { ParseWindOptions, WindGrid, WindSample } from '../shared/types'

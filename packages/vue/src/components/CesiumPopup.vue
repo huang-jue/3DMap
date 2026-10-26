@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { onBeforeUnmount, shallowRef, watch } from 'vue'
-import type { PopupHandle, PositionInput } from '@cesium-kit/core'
+import type { PopupHandle, PositionInput } from '@sgyx/cesium-kit-core'
 import { usePopup } from '../composables/usePopup'
 
 defineOptions({ name: 'CesiumPopup' })

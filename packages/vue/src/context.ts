@@ -6,7 +6,7 @@
   type InjectionKey,
   type ShallowRef
 } from 'vue'
-import type { CesiumViewerManager } from '@cesium-kit/core'
+import type { CesiumViewerManager } from '@sgyx/cesium-kit-core'
 import type { CesiumKitPluginOptions } from './plugin'
 
 interface Deferred<T> {

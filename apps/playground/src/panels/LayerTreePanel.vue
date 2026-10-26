@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { List } from '@element-plus/icons-vue'
-import { useLayerManager } from '@cesium-kit/vue'
-import type { LayerKind, LayerNode } from '@cesium-kit/core'
+import { useLayerManager } from '@sgyx/cesium-kit-vue'
+import type { LayerKind, LayerNode } from '@sgyx/cesium-kit-core'
 
 const { tree, setVisible, setAlpha, move, remove } = useLayerManager()
 

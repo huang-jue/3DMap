@@ -1,4 +1,4 @@
-import type { CesiumFeature, FeatureContext } from '@cesium-kit/core'
+import type { CesiumFeature, FeatureContext } from '@sgyx/cesium-kit-core'
 import { clampRange, intersectRanges, toDate } from './data/time'
 import {
   createWeatherRasterFeature,

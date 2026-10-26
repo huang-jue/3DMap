@@ -2,7 +2,7 @@ import {
   createLabel,
   createPoint,
   type CesiumFeature
-} from '@cesium-kit/core'
+} from '@sgyx/cesium-kit-core'
 
 export interface MarkersFeatureOptions {
   cities?: Array<{ name: string; lon: number; lat: number }>
@@ -16,7 +16,7 @@ const DEFAULT_CITIES = [
 ]
 
 /**
- * 示例插件：只使用 @cesium-kit/core 的公开契约，
+ * 示例插件：只使用 @sgyx/cesium-kit-core 的公开契约，
  * 用来验证 FeatureRegistry 的扩展能力与卸载回收。
  */
 export const markersFeature: CesiumFeature<MarkersFeatureOptions> = {

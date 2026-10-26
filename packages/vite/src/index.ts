@@ -10,7 +10,7 @@ const STATIC_DIRS = ['Workers', 'Assets', 'Widgets', 'ThirdParty']
 export interface CesiumAssetsOptions {
   /**
    * 静态资源部署路径，默认 'cesium'，即最终访问 `/cesium/Workers/...`。
-   * 与 `@cesium-kit/core` 的 `cesiumBaseUrl` 保持一致。
+   * 与 `@sgyx/cesium-kit-core` 的 `cesiumBaseUrl` 保持一致。
    */
   baseUrl?: string
   /** 是否通过 define 注入 CESIUM_BASE_URL，默认 true */
@@ -36,7 +36,7 @@ function resolveCesiumRoot(root: string): string {
     } catch {
       throw new Error(
         '[cesium-kit:vite] 未找到 cesium 依赖。请先安装：pnpm add cesium\n' +
-          '  @cesium-kit/vite 依赖消费者项目自行安装 cesium（peerDependency）。'
+          '  @sgyx/cesium-kit-vite 依赖消费者项目自行安装 cesium（peerDependency）。'
       )
     }
   }

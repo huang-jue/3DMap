@@ -1,4 +1,4 @@
-# @cesium-kit/vue
+# @sgyx/cesium-kit-vue
 
 ## 组件
 
@@ -75,12 +75,12 @@ const { layers, active, add, switchTo, remove, setAlpha, setShow, refresh } = us
 const { count, add, addMany, remove, clear, list, filter } = useEntities()
 ```
 
-实体图形使用 `@cesium-kit/core` 的工厂，`useEntities()` 负责加入当前 Viewer：
+实体图形使用 `@sgyx/cesium-kit-core` 的工厂，`useEntities()` 负责加入当前 Viewer：
 
 ```vue
 <script setup lang="ts">
-import { createLabel, createPoint } from '@cesium-kit/core'
-import { useEntities } from '@cesium-kit/vue'
+import { createLabel, createPoint } from '@sgyx/cesium-kit-core'
+import { useEntities } from '@sgyx/cesium-kit-vue'
 
 const { add } = useEntities()
 
@@ -158,7 +158,7 @@ const { popups, open, close, closeAll } = usePopup()
 ### `useMarkerCluster(options?)`
 
 ```ts
-import { usePopup } from '@cesium-kit/vue'
+import { usePopup } from '@sgyx/cesium-kit-vue'
 
 const { open } = usePopup()
 const { layer, add, addMany, remove, clear, setVisible, setClustering } =
@@ -210,7 +210,7 @@ app.use(CesiumKit, {
 ## 上下文
 
 ```ts
-import { useCesiumContext, createCesiumContext, whenReadySafe } from '@cesium-kit/vue'
+import { useCesiumContext, createCesiumContext, whenReadySafe } from '@sgyx/cesium-kit-vue'
 ```
 
 自定义组件若需要直接访问上下文，可使用 `useCesiumContext()`；它会在脱离 `<CesiumViewer>` 时抛出明确错误。
@@ -218,7 +218,7 @@ import { useCesiumContext, createCesiumContext, whenReadySafe } from '@cesium-ki
 ## 样式
 
 ```ts
-import '@cesium-kit/vue/style.css'
+import '@sgyx/cesium-kit-vue/style.css'
 ```
 
 只包含组件的容器样式，不含 reset，不会污染宿主。

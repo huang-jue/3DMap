@@ -1,6 +1,6 @@
 # 风场
 
-`@cesium-kit/wind` 是可选插件包，包含两部分：
+`@sgyx/cesium-kit-wind` 是可选插件包，包含两部分：
 
 - **气象风场**：基于 `cesium-wind-layer` 的 GPU 粒子流，支持 U/V 网格、色带、地形遮挡。
 - **风电场**：Billboard + Label 展示风机，支持状态色、功率/风速时间序列、点击选中。
@@ -10,13 +10,13 @@
 ## 安装
 
 ```bash
-pnpm add @cesium-kit/wind
+pnpm add @sgyx/cesium-kit-wind
 ```
 
 ## 启用气象风场
 
 ```ts
-import { createWindFieldFeature } from '@cesium-kit/wind'
+import { createWindFieldFeature } from '@sgyx/cesium-kit-wind'
 
 const windField = createWindFieldFeature({
   data: '/data/wind.json',
@@ -103,7 +103,7 @@ createWindFieldFeature({
 ## 启用风电场
 
 ```ts
-import { createWindFarmFeature } from '@cesium-kit/wind/farm'
+import { createWindFarmFeature } from '@sgyx/cesium-kit-wind/farm'
 
 const windFarm = createWindFarmFeature({
   turbines: '/data/turbines.json',
@@ -145,7 +145,7 @@ await manager.features.register(windFarm)
 ## 按配置组合
 
 ```ts
-import { createWindPlugin } from '@cesium-kit/wind'
+import { createWindPlugin } from '@sgyx/cesium-kit-wind'
 
 const plugin = createWindPlugin({
   field: { data: '/data/wind.json' },

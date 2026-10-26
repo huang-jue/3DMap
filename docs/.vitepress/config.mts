@@ -33,11 +33,11 @@ export default defineConfig({
         {
           text: 'API',
           items: [
-            { text: '@cesium-kit/core', link: '/api/core' },
-            { text: '@cesium-kit/vue', link: '/api/vue' },
-            { text: '@cesium-kit/weather', link: '/api/weather' },
-            { text: '@cesium-kit/wind', link: '/api/wind' },
-            { text: '@cesium-kit/vite', link: '/api/vite' }
+            { text: '@sgyx/cesium-kit-core', link: '/api/core' },
+            { text: '@sgyx/cesium-kit-vue', link: '/api/vue' },
+            { text: '@sgyx/cesium-kit-weather', link: '/api/weather' },
+            { text: '@sgyx/cesium-kit-wind', link: '/api/wind' },
+            { text: '@sgyx/cesium-kit-vite', link: '/api/vite' }
           ]
         }
       ]

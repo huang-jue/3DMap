@@ -1,6 +1,6 @@
 import { computed, type ComputedRef, type ShallowRef } from 'vue'
 import type * as Cesium from 'cesium'
-import type { CesiumViewerManager } from '@cesium-kit/core'
+import type { CesiumViewerManager } from '@sgyx/cesium-kit-core'
 import { useCesiumContext } from '../context'
 
 export interface UseViewerReturn {

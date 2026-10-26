@@ -1,14 +1,14 @@
 <script setup lang="ts">
 import { EditPen } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
-import { useDraw } from '@cesium-kit/vue'
+import { useDraw } from '@sgyx/cesium-kit-vue'
 import {
   formatArea,
   formatDistance,
   formatHeight,
   type DrawResult,
   type DrawType
-} from '@cesium-kit/core'
+} from '@sgyx/cesium-kit-core'
 
 const { drawing, results, start, clear } = useDraw()
 

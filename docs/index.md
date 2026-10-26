@@ -16,7 +16,7 @@ features:
   - title: 内核与业务解耦
     details: 内核只提供地图能力，任何业务概念都以 CesiumFeature 插件接入，可独立发版、独立懒加载。
   - title: 资源问题一次解决
-    details: '"@cesium-kit/vite" 自动复制 Workers / Assets / Widgets 并注入 CESIUM_BASE_URL，告别黑屏与 404。'
+    details: '"@sgyx/cesium-kit-vite" 自动复制 Workers / Assets / Widgets 并注入 CESIUM_BASE_URL，告别黑屏与 404。'
   - title: 视角不跳变
     details: 投影切换后自动回写相机视角；相机变化基于 camera.changed 事件，无轮询。
   - title: 类型完整

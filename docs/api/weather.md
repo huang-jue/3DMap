@@ -1,4 +1,4 @@
-# @cesium-kit/weather
+# @sgyx/cesium-kit-weather
 
 可选的 Cesium 天气预报能力包。
 

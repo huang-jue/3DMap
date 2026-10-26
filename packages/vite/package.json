@@ -1,5 +1,5 @@
 {
-  "name": "@cesium-kit/vite",
+  "name": "@sgyx/cesium-kit-vite",
   "version": "0.1.0",
   "description": "Cesium 静态资源与 CESIUM_BASE_URL 的 Vite 接入插件",
   "license": "MIT",

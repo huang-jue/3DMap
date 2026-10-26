@@ -235,7 +235,7 @@ export class CesiumViewerManager {
           source: 'assets',
           error: new Error(`Cesium 静态资源不可访问：${failed}`),
           detail:
-            '请接入 @cesium-kit/vite 插件，或手动复制 Workers/Assets/Widgets 并设置 cesiumBaseUrl'
+            '请接入 @sgyx/cesium-kit-vite 插件，或手动复制 Workers/Assets/Widgets 并设置 cesiumBaseUrl'
         })
       }
     }
@@ -271,7 +271,7 @@ export class CesiumViewerManager {
           })
         } catch (error) {
           const detail =
-            '请检查 Cesium 静态资源是否已复制、cesiumBaseUrl 是否正确（可接入 @cesium-kit/vite 插件）'
+            '请检查 Cesium 静态资源是否已复制、cesiumBaseUrl 是否正确（可接入 @sgyx/cesium-kit-vite 插件）'
           this.log.error(`底图 "${String(config.id ?? config.source)}" 加载失败。${detail}`, error)
           this.events.emit('error', { source: 'imagery', error, detail })
         }

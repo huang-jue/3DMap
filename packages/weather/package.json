@@ -1,5 +1,5 @@
 {
-  "name": "@cesium-kit/weather",
+  "name": "@sgyx/cesium-kit-weather",
   "version": "0.1.0",
   "description": "Cesium 天气预报插件：多图层栅格、时间轴联动与图例",
   "license": "MIT",
@@ -36,7 +36,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@cesium-kit/core": "workspace:^"
+    "@sgyx/cesium-kit-core": "workspace:^"
   },
   "peerDependencies": {
     "cesium": "^1.146.0"

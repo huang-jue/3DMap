@@ -2,8 +2,8 @@
 import { computed, ref } from 'vue'
 import { ChatDotRound } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
-import { useMarkerCluster, usePopup } from '@cesium-kit/vue'
-import type { MarkerInput } from '@cesium-kit/core'
+import { useMarkerCluster, usePopup } from '@sgyx/cesium-kit-vue'
+import type { MarkerInput } from '@sgyx/cesium-kit-core'
 
 const enabled = ref(false)
 const { open, closeAll } = usePopup()

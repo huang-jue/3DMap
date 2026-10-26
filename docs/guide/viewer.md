@@ -36,7 +36,7 @@ manager.imagery.remove('osm')
 自定义瓦片：
 
 ```ts
-import { createXyzImagery } from '@cesium-kit/core'
+import { createXyzImagery } from '@sgyx/cesium-kit-core'
 
 await manager.imagery.add(createXyzImagery('https://tile.example.com/{z}/{x}/{y}.png'), {
   id: 'custom'
@@ -135,7 +135,7 @@ manager.scene.setBaseColor('#0b1020')
 ## 资产自检
 
 ```ts
-import { verifyCesiumAssets } from '@cesium-kit/core'
+import { verifyCesiumAssets } from '@sgyx/cesium-kit-core'
 
 const result = await verifyCesiumAssets()
 // { ok, baseUrl, checks: [{ name, url, ok, status }] }
@@ -155,7 +155,7 @@ Cesium 在 morph 后会丢失原视角，内核会在 `morphComplete` 后自动�
 ## 实体
 
 ```ts
-import { createLabel, createPoint, createPolygon } from '@cesium-kit/core'
+import { createLabel, createPoint, createPolygon } from '@sgyx/cesium-kit-core'
 
 const positions = [
   { lon: 116.38, lat: 39.89 },

@@ -53,7 +53,7 @@ export interface CesiumFeature<T = unknown> {
 ## 示例
 
 ```ts
-import { createLabel, createPoint, type CesiumFeature } from '@cesium-kit/core'
+import { createLabel, createPoint, type CesiumFeature } from '@sgyx/cesium-kit-core'
 
 interface Options {
   cities: Array<{ name: string; lon: number; lat: number }>
@@ -105,7 +105,7 @@ manager.features.unregister('city-markers')
 Vue 中自动跟随组件生命周期：
 
 ```ts
-import { useFeature } from '@cesium-kit/vue'
+import { useFeature } from '@sgyx/cesium-kit-vue'
 
 const cities = [
   { name: '北京', lon: 116.39, lat: 39.9 },

@@ -1,7 +1,7 @@
 ﻿import * as Cesium from 'cesium'
 import { WindLayer } from 'cesium-wind-layer'
 import type { WindData, WindLayerOptions as RawWindLayerOptions } from 'cesium-wind-layer'
-import type { PrimitiveLike } from '@cesium-kit/core'
+import type { PrimitiveLike } from '@sgyx/cesium-kit-core'
 import { interpolateWind } from '../data/interpolate'
 import type { WindGrid, WindSample } from '../shared/types'
 

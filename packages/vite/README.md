@@ -1,4 +1,4 @@
-# @cesium-kit/vite
+# @sgyx/cesium-kit-vite
 
 为 Vite 项目自动完成 Cesium 的两件必做事项：
 
@@ -11,7 +11,7 @@
 
 ```bash
 pnpm add cesium
-pnpm add -D @cesium-kit/vite
+pnpm add -D @sgyx/cesium-kit-vite
 ```
 
 ## 使用
@@ -20,7 +20,7 @@ pnpm add -D @cesium-kit/vite
 // vite.config.ts
 import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
-import { cesiumAssets } from '@cesium-kit/vite'
+import { cesiumAssets } from '@sgyx/cesium-kit-vite'
 
 export default defineConfig({
   plugins: [vue(), cesiumAssets()]
@@ -33,7 +33,7 @@ export default defineConfig({
 
 | 选项 | 类型 | 默认 | 说明 |
 | --- | --- | --- | --- |
-| `baseUrl` | `string` | `'cesium'` | 资源部署路径，对应 `@cesium-kit/core` 的 `cesiumBaseUrl` |
+| `baseUrl` | `string` | `'cesium'` | 资源部署路径，对应 `@sgyx/cesium-kit-core` 的 `cesiumBaseUrl` |
 | `defineBaseUrl` | `boolean` | `true` | 是否通过 `define` 注入 `CESIUM_BASE_URL` |
 | `runtimeBaseUrl` | `boolean` | `true` | 是否在 `index.html` 中写入 `window.CESIUM_BASE_URL` |
 | `root` | `string` | `process.cwd()` | Vite 项目根目录；若配置里改过 `root` 需手动指定 |
@@ -67,4 +67,4 @@ new webpack.DefinePlugin({
 })
 ```
 
-或在使用 `@cesium-kit/core` 时直接传 `cesiumBaseUrl: '/cesium'`。
+或在使用 `@sgyx/cesium-kit-core` 时直接传 `cesiumBaseUrl: '/cesium'`。

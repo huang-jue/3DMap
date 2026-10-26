@@ -115,7 +115,7 @@ manager.events.on('layer:change', ({ action, id, parentId }) => {
 ## Vue
 
 ```ts
-import { useLayerManager } from '@cesium-kit/vue'
+import { useLayerManager } from '@sgyx/cesium-kit-vue'
 
 const { tree, setVisible, setAlpha, move, remove, addDataSource } = useLayerManager()
 ```

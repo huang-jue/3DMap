@@ -1,4 +1,4 @@
-# @cesium-kit/core
+# @sgyx/cesium-kit-core
 
 Cesium 基础能力内核：Viewer 生命周期、底图、地形、相机、场景模式、实体、坐标转换、事件总线，以及业务插件注册表。
 
@@ -9,15 +9,15 @@ Cesium 基础能力内核：Viewer 生命周期、底图、地形、相机、场
 ## 安装
 
 ```bash
-pnpm add cesium @cesium-kit/core
+pnpm add cesium @sgyx/cesium-kit-core
 ```
 
-Cesium 的静态资源（Workers/Assets/Widgets）需要被复制到可访问路径。使用 Vite 时推荐配合 [`@cesium-kit/vite`](../vite)：
+Cesium 的静态资源（Workers/Assets/Widgets）需要被复制到可访问路径。使用 Vite 时推荐配合 [`@sgyx/cesium-kit-vite`](../vite)：
 
 ```ts
 // vite.config.ts
 import { defineConfig } from 'vite'
-import { cesiumAssets } from '@cesium-kit/vite'
+import { cesiumAssets } from '@sgyx/cesium-kit-vite'
 
 export default defineConfig({ plugins: [cesiumAssets()] })
 ```
@@ -28,7 +28,7 @@ export default defineConfig({ plugins: [cesiumAssets()] })
 ## 快速开始
 
 ```ts
-import { CesiumViewerManager, createLabel, createPoint } from '@cesium-kit/core'
+import { CesiumViewerManager, createLabel, createPoint } from '@sgyx/cesium-kit-core'
 
 const manager = await CesiumViewerManager.create(document.getElementById('map')!, {
   ionToken: import.meta.env.VITE_CESIUM_ION_TOKEN,
@@ -78,7 +78,7 @@ manager.destroy()
 插件是后续业务能力（如洪水演进）的唯一扩展点，内核不感知任何业务概念。
 
 ```ts
-import { createPoint, type CesiumFeature } from '@cesium-kit/core'
+import { createPoint, type CesiumFeature } from '@sgyx/cesium-kit-core'
 
 export const markers: CesiumFeature<{ cities: Array<{ name: string; lon: number; lat: number }> }> = {
   name: 'markers',
@@ -121,7 +121,7 @@ manager.events.on('error', ({ source, error, detail }) => {
 ## 日志
 
 ```ts
-import { setLogLevel } from '@cesium-kit/core'
+import { setLogLevel } from '@sgyx/cesium-kit-core'
 setLogLevel('debug')
 ```
 

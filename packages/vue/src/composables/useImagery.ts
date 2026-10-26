@@ -1,5 +1,5 @@
 import { onBeforeUnmount, onMounted, ref, type Ref } from 'vue'
-import type { CesiumViewerManager, ImageryLayerInfo, ImagerySource } from '@cesium-kit/core'
+import type { CesiumViewerManager, ImageryLayerInfo, ImagerySource } from '@sgyx/cesium-kit-core'
 import { useCesiumContext, whenReadySafe } from '../context'
 
 export interface UseImageryReturn {

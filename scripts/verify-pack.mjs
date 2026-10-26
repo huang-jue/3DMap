@@ -73,11 +73,11 @@ try {
   const versions = { 'vue': '^3.5.44', 'vite': '^8.3.4', 'typescript': '^6.0.3' }
   const fixturePkg = JSON.parse(readFileSync(path.join(appDir, 'package.json'), 'utf8'))
   fixturePkg.dependencies = {
-    '@cesium-kit/core': toFileUrl(tarballPath(packDir, 'core')),
-    '@cesium-kit/vue': toFileUrl(tarballPath(packDir, 'vue')),
-    '@cesium-kit/weather': toFileUrl(tarballPath(packDir, 'weather')),
-    '@cesium-kit/wind': toFileUrl(tarballPath(packDir, 'wind')),
-    '@cesium-kit/vite': toFileUrl(tarballPath(packDir, 'vite')),
+    '@sgyx/cesium-kit-core': toFileUrl(tarballPath(packDir, 'core')),
+    '@sgyx/cesium-kit-vue': toFileUrl(tarballPath(packDir, 'vue')),
+    '@sgyx/cesium-kit-weather': toFileUrl(tarballPath(packDir, 'weather')),
+    '@sgyx/cesium-kit-wind': toFileUrl(tarballPath(packDir, 'wind')),
+    '@sgyx/cesium-kit-vite': toFileUrl(tarballPath(packDir, 'vite')),
     cesium: '^1.146.0',
     vue: versions.vue
   }
@@ -120,7 +120,8 @@ try {
     'dist/index.html',
     'dist/cesium/Workers/transferTypedArrayTest.js',
     'dist/cesium/Assets/Textures/NaturalEarthII/tilemapresource.xml',
-    'dist/cesium/Widgets/widgets.css'
+    'dist/cesium/Widgets/widgets.css',
+    'dist/cesium/ThirdParty'
   ]
   const missing = mustExist.filter((file) => !existsSync(path.join(appDir, file)))
   if (missing.length) {

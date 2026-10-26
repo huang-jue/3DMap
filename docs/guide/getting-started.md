@@ -3,19 +3,19 @@
 ## 安装
 
 ```bash
-pnpm add cesium @cesium-kit/core @cesium-kit/vue
-pnpm add -D @cesium-kit/vite
+pnpm add cesium @sgyx/cesium-kit-core @sgyx/cesium-kit-vue
+pnpm add -D @sgyx/cesium-kit-vite
 ```
 
 ## 配置 Vite
 
-`@cesium-kit/vite` 负责复制 Cesium 静态资源并注入 `CESIUM_BASE_URL`：
+`@sgyx/cesium-kit-vite` 负责复制 Cesium 静态资源并注入 `CESIUM_BASE_URL`：
 
 ```ts
 // vite.config.ts
 import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
-import { cesiumAssets } from '@cesium-kit/vite'
+import { cesiumAssets } from '@sgyx/cesium-kit-vite'
 
 export default defineConfig({
   plugins: [vue(), cesiumAssets()]
@@ -27,14 +27,14 @@ export default defineConfig({
 ```ts
 // main.ts
 import 'cesium/Build/Cesium/Widgets/widgets.css'
-import '@cesium-kit/vue/style.css'
+import '@sgyx/cesium-kit-vue/style.css'
 ```
 
 ## 渲染地图
 
 ```vue
 <script setup lang="ts">
-import { CesiumViewer } from '@cesium-kit/vue'
+import { CesiumViewer } from '@sgyx/cesium-kit-vue'
 
 const options = {
   ionToken: import.meta.env.VITE_CESIUM_ION_TOKEN,
@@ -53,7 +53,7 @@ const options = {
 ## 不使用 Vue
 
 ```ts
-import { CesiumViewerManager } from '@cesium-kit/core'
+import { CesiumViewerManager } from '@sgyx/cesium-kit-core'
 
 const manager = await CesiumViewerManager.create(document.getElementById('map')!, {
   showCredits: false

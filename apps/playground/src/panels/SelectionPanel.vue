@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { useSelection } from '@cesium-kit/vue'
+import { useSelection } from '@sgyx/cesium-kit-vue'
 const { selected, clear } = useSelection()
 function valueText(value: unknown): string {
   try {

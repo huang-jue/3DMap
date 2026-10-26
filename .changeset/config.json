@@ -5,11 +5,11 @@
   "fixed": [],
   "linked": [
     [
-      "@cesium-kit/core",
-      "@cesium-kit/vue",
-      "@cesium-kit/weather",
-      "@cesium-kit/wind",
-      "@cesium-kit/vite"
+      "@sgyx/cesium-kit-core",
+      "@sgyx/cesium-kit-vue",
+      "@sgyx/cesium-kit-weather",
+      "@sgyx/cesium-kit-wind",
+      "@sgyx/cesium-kit-vite"
     ]
   ],
   "access": "public",

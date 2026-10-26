@@ -1,5 +1,5 @@
 import { onBeforeUnmount, onMounted, ref, type Ref } from 'vue'
-import type { CesiumViewerManager, SceneModeName } from '@cesium-kit/core'
+import type { CesiumViewerManager, SceneModeName } from '@sgyx/cesium-kit-core'
 import { useCesiumContext, whenReadySafe } from '../context'
 
 export interface UseSceneModeReturn {

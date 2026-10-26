@@ -1,4 +1,4 @@
-import type { FeatureContext } from '@cesium-kit/core'
+import type { FeatureContext } from '@sgyx/cesium-kit-core'
 
 /** 确保共享图层树中存在“天气图层”分组。 */
 export function ensureWeatherLayerGroup(ctx: FeatureContext): string | undefined {

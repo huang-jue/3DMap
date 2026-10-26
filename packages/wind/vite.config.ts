@@ -13,7 +13,7 @@ export default defineConfig({
       formats: ['es']
     },
     rollupOptions: {
-      external: [/^cesium/, /^@cesium\//, /^@cesium-kit\//, 'cesium-wind-layer'],
+      external: [/^cesium/, /^@cesium\//, /^@sgyx\/cesium-kit-/, 'cesium-wind-layer'],
       output: {
         entryFileNames: '[name].js'
       }

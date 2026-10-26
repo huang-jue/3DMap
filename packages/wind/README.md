@@ -1,4 +1,4 @@
-# @cesium-kit/wind
+# @sgyx/cesium-kit-wind
 
 可选的 Cesium 风场能力包：
 
@@ -8,13 +8,13 @@
 ## 安装
 
 ```bash
-pnpm add cesium @cesium-kit/core @cesium-kit/wind
+pnpm add cesium @sgyx/cesium-kit-core @sgyx/cesium-kit-wind
 ```
 
 ## 气象风场
 
 ```ts
-import { createWindFieldFeature } from '@cesium-kit/wind'
+import { createWindFieldFeature } from '@sgyx/cesium-kit-wind'
 
 const windField = createWindFieldFeature({
   data: '/data/wind.json',
@@ -28,7 +28,7 @@ await manager.features.register(windField)
 ## 风电场
 
 ```ts
-import { createWindFarmFeature } from '@cesium-kit/wind/farm'
+import { createWindFarmFeature } from '@sgyx/cesium-kit-wind/farm'
 
 const windFarm = createWindFarmFeature({
   turbines: '/data/turbines.json',
@@ -41,7 +41,7 @@ await manager.features.register(windFarm)
 ## 按配置组合
 
 ```ts
-import { createWindPlugin } from '@cesium-kit/wind'
+import { createWindPlugin } from '@sgyx/cesium-kit-wind'
 
 await manager.features.register(
   createWindPlugin({

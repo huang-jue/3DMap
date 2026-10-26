@@ -1,4 +1,4 @@
-import type { CesiumFeature, FeatureContext } from '@cesium-kit/core'
+import type { CesiumFeature, FeatureContext } from '@sgyx/cesium-kit-core'
 import {
   createWindFieldFeature,
   type WindFieldFeature,
@@ -27,7 +27,7 @@ export interface WindPlugin extends CesiumFeature {
 /**
  * 按配置组合气象风场与风电场。
  *
- * 不需要风场的项目不安装 `@cesium-kit/wind` 即可；
+ * 不需要风场的项目不安装 `@sgyx/cesium-kit-wind` 即可；
  * 安装了但只想启用其中一项时，把另一项设为 false。
  */
 export function createWindPlugin(config: WindPluginConfig): WindPlugin {

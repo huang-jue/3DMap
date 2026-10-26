@@ -1,6 +1,6 @@
 import { onBeforeUnmount, onMounted, ref, type Ref } from 'vue'
 import type * as Cesium from 'cesium'
-import type { CesiumViewerManager, PickEventPayload } from '@cesium-kit/core'
+import type { CesiumViewerManager, PickEventPayload } from '@sgyx/cesium-kit-core'
 import { useCesiumContext, whenReadySafe } from '../context'
 
 export interface UsePickOptions {

@@ -1,5 +1,5 @@
 {
-  "name": "@cesium-kit/core",
+  "name": "@sgyx/cesium-kit-core",
   "version": "0.1.0",
   "description": "Cesium 基础能力内核：Viewer 生命周期、底图、地形、相机、实体、坐标与事件",
   "license": "MIT",

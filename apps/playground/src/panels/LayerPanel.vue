@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { Files } from '@element-plus/icons-vue'
-import { useLayerManager } from '@cesium-kit/vue'
+import { useLayerManager } from '@sgyx/cesium-kit-vue'
 import { ElMessage } from 'element-plus'
 
 const { tree, createGroup, addDataSource, addTileset, remove } = useLayerManager()

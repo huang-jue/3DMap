@@ -10,7 +10,7 @@ export interface ImageryPreset {
 
 /**
  * 内置底图预设。`naturalEarth` 依赖 Cesium 静态资源（Assets/Textures/NaturalEarthII），
- * 请确认 `cesiumBaseUrl` 或 `@cesium-kit/vite` 插件已正确配置。
+ * 请确认 `cesiumBaseUrl` 或 `@sgyx/cesium-kit-vite` 插件已正确配置。
  */
 export const imageryPresets: Record<string, ImageryPreset> = {
   naturalEarth: {

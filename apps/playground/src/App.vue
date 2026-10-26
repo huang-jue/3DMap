@@ -2,13 +2,13 @@
 import { reactive, ref, watch } from 'vue'
 import { Aim, MapLocation } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
-import { CesiumViewer } from '@cesium-kit/vue'
+import { CesiumViewer } from '@sgyx/cesium-kit-vue'
 import type {
   CameraView,
   CesiumKitErrorPayload,
   CesiumViewerManager,
   SceneModeName
-} from '@cesium-kit/core'
+} from '@sgyx/cesium-kit-core'
 import { markersFeature } from './features/markersFeature'
 import ScenePanel from './panels/ScenePanel.vue'
 import TimePanel from './panels/TimePanel.vue'

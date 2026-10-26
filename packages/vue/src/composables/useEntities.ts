@@ -1,6 +1,6 @@
 import { ref, type Ref } from 'vue'
 import type * as Cesium from 'cesium'
-import type { CesiumViewerManager } from '@cesium-kit/core'
+import type { CesiumViewerManager } from '@sgyx/cesium-kit-core'
 import { useCesiumContext, whenReadySafe } from '../context'
 
 export interface UseEntitiesReturn {

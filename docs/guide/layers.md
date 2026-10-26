@@ -58,7 +58,7 @@ apps/playground/public/tiles/demo/
 ## WMS / WMTS
 
 ```ts
-import { createWmsImagery, createWmtsImagery } from '@cesium-kit/core'
+import { createWmsImagery, createWmtsImagery } from '@sgyx/cesium-kit-core'
 
 await manager.imagery.add(
   createWmsImagery({

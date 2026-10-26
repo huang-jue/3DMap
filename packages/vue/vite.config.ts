@@ -13,7 +13,7 @@ export default defineConfig({
       cssFileName: 'style'
     },
     rollupOptions: {
-      external: [/^cesium/, /^@cesium\//, 'vue', /^@cesium-kit\//]
+      external: [/^cesium/, /^@cesium\//, 'vue', /^@sgyx\/cesium-kit-/]
     }
   },
   plugins: [

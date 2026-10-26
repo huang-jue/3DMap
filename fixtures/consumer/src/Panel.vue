@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
-import { useCamera, useClock, useEntities, usePick, useSceneMode, useViewer } from '@cesium-kit/vue'
-import { createPoint } from '@cesium-kit/core'
-import { parseWeatherLayer } from '@cesium-kit/weather'
-import { parseWindJson } from '@cesium-kit/wind'
+import { useCamera, useClock, useEntities, usePick, useSceneMode, useViewer } from '@sgyx/cesium-kit-vue'
+import { createPoint } from '@sgyx/cesium-kit-core'
+import { parseWeatherLayer } from '@sgyx/cesium-kit-weather'
+import { parseWindJson } from '@sgyx/cesium-kit-wind'
 
 const windPreview = parseWindJson({
   u: [0, 1, 2, 3],

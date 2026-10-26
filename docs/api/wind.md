@@ -1,6 +1,6 @@
-# @cesium-kit/wind
+# @sgyx/cesium-kit-wind
 
-可选的 Cesium 风场能力包。主入口包含气象风场与风电场，也可以只从 `@cesium-kit/wind/farm` 引入风电场。
+可选的 Cesium 风场能力包。主入口包含气象风场与风电场，也可以只从 `@sgyx/cesium-kit-wind/farm` 引入风电场。
 
 ## 数据
 

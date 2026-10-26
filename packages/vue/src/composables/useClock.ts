@@ -1,5 +1,5 @@
 import { onBeforeUnmount, onMounted, ref, type Ref } from 'vue'
-import type { ClockState, CesiumViewerManager } from '@cesium-kit/core'
+import type { ClockState, CesiumViewerManager } from '@sgyx/cesium-kit-core'
 import { useCesiumContext, whenReadySafe } from '../context'
 
 export interface UseClockReturn {

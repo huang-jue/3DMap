@@ -1,8 +1,8 @@
-﻿<script setup lang="ts">
+<script setup lang="ts">
 import { computed, ref, shallowRef, watch } from 'vue'
 import { WindPower } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
-import { useClock, useViewer } from '@cesium-kit/vue'
+import { useClock, useViewer } from '@sgyx/cesium-kit-vue'
 import {
   createWindFarmFeature,
   createWindFieldFeature,
@@ -10,7 +10,7 @@ import {
   type WindFarmFeature,
   type WindFieldFeature,
   type WindTurbine
-} from '@cesium-kit/wind'
+} from '@sgyx/cesium-kit-wind'
 
 const { manager } = useViewer()
 const { state } = useClock()

@@ -4,17 +4,17 @@
 
 仓库为 pnpm workspace 单仓多包：
 
-| 包                    | 说明                                                                                  |
-| --------------------- | ------------------------------------------------------------------------------------- |
-| `@cesium-kit/core`    | 纯 TS 内核：Viewer 生命周期、底图、地形、相机、场景模式、实体、坐标、事件、插件注册表 |
-| `@cesium-kit/vue`     | Vue 3 适配层：`<CesiumViewer>` 组件与 composables                                     |
-| `@cesium-kit/weather` | 可选天气预报插件：多图层栅格、时间轴联动与图例                                        |
-| `@cesium-kit/wind`    | 可选风场插件：GPU 粒子气象风场、风电场 Billboard/Label                                |
-| `@cesium-kit/vite`    | Vite 插件：复制 Cesium 静态资源并注入 `CESIUM_BASE_URL`                               |
-| `apps/playground`     | 本地演示（含 Element Plus 面板，不参与发包）                                          |
-| `e2e/`                | Playwright 端到端测试                                                                 |
-| `fixtures/consumer`   | `verify:pack` 使用的干净消费者工程模板                                                |
-| `docs/`               | VitePress 文档                                                                        |
+| 包                         | 说明                                                                                  |
+| -------------------------- | ------------------------------------------------------------------------------------- |
+| `@sgyx/cesium-kit-core`    | 纯 TS 内核：Viewer 生命周期、底图、地形、相机、场景模式、实体、坐标、事件、插件注册表 |
+| `@sgyx/cesium-kit-vue`     | Vue 3 适配层：`<CesiumViewer>` 组件与 composables                                     |
+| `@sgyx/cesium-kit-weather` | 可选天气预报插件：多图层栅格、时间轴联动与图例                                        |
+| `@sgyx/cesium-kit-wind`    | 可选风场插件：GPU 粒子气象风场、风电场 Billboard/Label                                |
+| `@sgyx/cesium-kit-vite`    | Vite 插件：复制 Cesium 静态资源并注入 `CESIUM_BASE_URL`                               |
+| `apps/playground`          | 本地演示（含 Element Plus 面板，不参与发包）                                          |
+| `e2e/`                     | Playwright 端到端测试                                                                 |
+| `fixtures/consumer`        | `verify:pack` 使用的干净消费者工程模板                                                |
+| `docs/`                    | VitePress 文档                                                                        |
 
 ## 能力概览
 
@@ -73,6 +73,15 @@ pnpm release        # 3. 构建并发布变更的包（changeset publish）
 
 各包通过 changesets 的 `linked` 配置保持版本一致。
 
+> 根目录是私有 monorepo 工程，**不要在根目录执行 `npm publish`**。请在根目录使用 `pnpm release`，或进入具体包目录执行 `npm publish --access public`。
+
+首次发布或直接发布所有子包：
+
+```bash
+pnpm publish:dry-run   # 预演，不真正上传
+pnpm publish:packages  # 构建并发布 packages/* 下的所有包
+```
+
 ### 发布前检查
 
 - `packages/*/package.json` 中的 `repository` / `homepage` / `bugs` 目前是占位地址，发布前请替换为真实仓库地址
@@ -84,4 +93,4 @@ pnpm release        # 3. 构建并发布变更的包（changeset publish）
 1. Cesium 走 `peerDependencies`，不打进产物。
 2. 内核不含任何业务概念；业务能力以 `CesiumFeature` 插件形式接入。
 3. 库内不含 UI 框架依赖，UI 由宿主决定。
-4. CSS 单独产出，需消费者显式引入 `@cesium-kit/vue/style.css`。
+4. CSS 单独产出，需消费者显式引入 `@sgyx/cesium-kit-vue/style.css`。

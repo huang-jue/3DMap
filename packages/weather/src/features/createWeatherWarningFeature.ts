@@ -1,4 +1,4 @@
-import type { CesiumFeature, FeatureContext, PopupHandle } from '@cesium-kit/core'
+import type { CesiumFeature, FeatureContext, PopupHandle } from '@sgyx/cesium-kit-core'
 import { loadWeatherWarnings } from '../data/loadWeather'
 import {
   WeatherWarningLayer,

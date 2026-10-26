@@ -4,7 +4,7 @@
 
 Cesium 的静态资源没有部署或 `CESIUM_BASE_URL` 不正确。
 
-- Vite 项目：接入 `@cesium-kit/vite`，确认 `dist/cesium/Workers/` 存在。
+- Vite 项目：接入 `@sgyx/cesium-kit-vite`，确认 `dist/cesium/Workers/` 存在。
 - 非 Vite 项目：手动复制 `node_modules/cesium/Build/Cesium/{Workers,Assets,Widgets,ThirdParty}`，
   并设置 `window.CESIUM_BASE_URL` 或传入 `cesiumBaseUrl`。
 - 部署到子路径时：`cesiumAssets({ baseUrl: 'static/cesium' })`。
@@ -30,7 +30,7 @@ await CesiumViewerManager.create(el, { ionToken: '...' })
 
 - 库本身在顶层不访问 DOM，可以直接参与 SSR 构建。
 - 初始化必须发生在浏览器：Vue 中由 `<CesiumViewer>` 自动在 `onMounted` 执行。
-- 引入 `@cesium-kit/vue/style.css` 请交给构建工具处理（不要在 Node 里执行）。
+- 引入 `@sgyx/cesium-kit-vue/style.css` 请交给构建工具处理（不要在 Node 里执行）。
 
 ## 多个地图实例
 
@@ -44,6 +44,6 @@ await CesiumViewerManager.create(el, { ionToken: '...' })
 ## 类型提示缺失
 
 确认：
-1. 安装的是 `@cesium-kit/*` 的正式版本而非源码目录；
+1. 安装的是 `@sgyx/cesium-kit-*` 的正式版本而非源码目录；
 2. `tsconfig.json` 的 `moduleResolution` 为 `bundler` 或 `node16`；
 3. `cesium` 已安装（类型由 Cesium 包自带）。

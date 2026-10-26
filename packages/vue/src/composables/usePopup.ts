@@ -1,5 +1,5 @@
 import { onBeforeUnmount, ref, type Ref } from 'vue'
-import type { CesiumViewerManager, PopupHandle, PopupOptions } from '@cesium-kit/core'
+import type { CesiumViewerManager, PopupHandle, PopupOptions } from '@sgyx/cesium-kit-core'
 import { useCesiumContext, whenReadySafe } from '../context'
 
 export interface UsePopupReturn {

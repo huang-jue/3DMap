@@ -5,7 +5,7 @@ import {
   type MarkerClusterOptions,
   type MarkerClusteringOptions,
   type MarkerInput
-} from '@cesium-kit/core'
+} from '@sgyx/cesium-kit-core'
 import { useCesiumContext, whenReadySafe } from '../context'
 
 export interface UseMarkerClusterOptions extends MarkerClusterOptions {

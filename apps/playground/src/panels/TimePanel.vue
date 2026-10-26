@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { DArrowLeft, DArrowRight, Timer, VideoPause, VideoPlay } from '@element-plus/icons-vue'
-import { useClock, useViewer } from '@cesium-kit/vue'
+import { useClock, useViewer } from '@sgyx/cesium-kit-vue'
 import { ElMessage } from 'element-plus'
 import { waterLevelFeature } from '../features/waterLevelFeature'
 

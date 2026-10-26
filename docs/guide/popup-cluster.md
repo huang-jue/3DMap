@@ -58,7 +58,7 @@ manager.popup.open({
 `MarkerClusterLayer` 基于 Cesium 内置 `EntityCluster`，用 `CustomDataSource` 承载标注：
 
 ```ts
-import { MarkerClusterLayer } from '@cesium-kit/core'
+import { MarkerClusterLayer } from '@sgyx/cesium-kit-core'
 
 const layer = new MarkerClusterLayer(manager.viewer, {
   id: 'cities',
@@ -106,7 +106,7 @@ const layer = new MarkerClusterLayer(manager.viewer, {
 ## Vue
 
 ```ts
-import { useMarkerCluster, usePopup } from '@cesium-kit/vue'
+import { useMarkerCluster, usePopup } from '@sgyx/cesium-kit-vue'
 
 const { open, closeAll } = usePopup()
 const { layer, add, addMany, clear, setClustering } = useMarkerCluster({

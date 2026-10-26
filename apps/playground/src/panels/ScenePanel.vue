@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { Camera, Picture, View } from '@element-plus/icons-vue'
-import { useViewer } from '@cesium-kit/vue'
-import type { CameraView, SceneModeName } from '@cesium-kit/core'
+import { useViewer } from '@sgyx/cesium-kit-vue'
+import type { CameraView, SceneModeName } from '@sgyx/cesium-kit-core'
 
 const props = defineProps<{
   baseLayer: string

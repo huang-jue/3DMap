@@ -11,7 +11,7 @@ import type {
   LayerNode,
   LayerNodeOptions,
   TilesetSource
-} from '@cesium-kit/core'
+} from '@sgyx/cesium-kit-core'
 import { useCesiumContext, whenReadySafe } from '../context'
 
 export interface UseLayerManagerReturn {

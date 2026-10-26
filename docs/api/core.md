@@ -1,4 +1,4 @@
-# @cesium-kit/core
+# @sgyx/cesium-kit-core
 
 ## `CesiumViewerManager`
 

@@ -1,4 +1,4 @@
-import type { CesiumFeature, FeatureContext } from '@cesium-kit/core'
+import type { CesiumFeature, FeatureContext } from '@sgyx/cesium-kit-core'
 import type { WindSample, WindTurbine } from '../shared/types'
 import { WindFarmLayer, type WindFarmLayerOptions } from './WindFarmLayer'
 

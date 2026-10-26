@@ -1,5 +1,5 @@
 import type { App } from 'vue'
-import type { CesiumKitOptions } from '@cesium-kit/core'
+import type { CesiumKitOptions } from '@sgyx/cesium-kit-core'
 import { CESIUM_KIT_OPTIONS_KEY } from './context'
 
 export interface CesiumKitPluginOptions {

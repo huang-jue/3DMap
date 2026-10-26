@@ -1,9 +1,9 @@
 ---
-'@cesium-kit/core': minor
-'@cesium-kit/wind': minor
+'@sgyx/cesium-kit-core': minor
+'@sgyx/cesium-kit-wind': minor
 ---
 
-新增可选风场插件 `@cesium-kit/wind`：
+新增可选风场插件 `@sgyx/cesium-kit-wind`：
 
 - 气象风场：封装 `cesium-wind-layer` 的 GPU 粒子流，支持原生 U/V 网格与 GFS/Windy JSON、双线性插值、多时刻切片、色带与粒子参数配置。
 - 风电场：Billboard + Label，支持状态色、功率/风速时间序列、点击选中高亮。

@@ -1,5 +1,5 @@
 import { onBeforeUnmount, onMounted, ref, type Ref } from 'vue'
-import type { CameraTarget, CameraView, FlyToOptions } from '@cesium-kit/core'
+import type { CameraTarget, CameraView, FlyToOptions } from '@sgyx/cesium-kit-core'
 import { useCesiumContext, whenReadySafe } from '../context'
 
 export interface UseCameraOptions {

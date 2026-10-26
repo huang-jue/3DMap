@@ -1,5 +1,5 @@
 import { onBeforeUnmount, onMounted, ref, type Ref } from 'vue'
-import type { CesiumFeature } from '@cesium-kit/core'
+import type { CesiumFeature } from '@sgyx/cesium-kit-core'
 import { useCesiumContext, whenReadySafe } from '../context'
 
 export interface UseFeatureReturn {
@@ -12,7 +12,7 @@ export interface UseFeatureReturn {
 
 /**
  * 在 Vue 组件生命周期内注册业务插件，卸载时自动注销并回收图层。
- * 插件实现完全基于 @cesium-kit/core 的公开契约。
+ * 插件实现完全基于 @sgyx/cesium-kit-core 的公开契约。
  */
 export function useFeature<T>(feature: CesiumFeature<T>, options?: T): UseFeatureReturn {
   const context = useCesiumContext()

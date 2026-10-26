@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { ElMessage } from 'element-plus'
-import { useDraw, useSceneSnapshot } from '@cesium-kit/vue'
+import { useDraw, useSceneSnapshot } from '@sgyx/cesium-kit-vue'
 
 const draw = useDraw()
 const snapshots = useSceneSnapshot()

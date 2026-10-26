@@ -6,7 +6,7 @@ import {
   type CesiumKitErrorPayload,
   type CesiumKitOptions,
   type SceneModeName
-} from '@cesium-kit/core'
+} from '@sgyx/cesium-kit-core'
 import {
   CESIUM_KIT_CONTEXT_KEY,
   CESIUM_KIT_OPTIONS_KEY,

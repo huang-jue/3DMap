@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { usePick } from '@cesium-kit/vue'
+import { usePick } from '@sgyx/cesium-kit-vue'
 
 const { last, hovered } = usePick({ hoverInterval: 120 })
 

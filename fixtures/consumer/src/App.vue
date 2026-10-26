@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { CesiumViewer } from '@cesium-kit/vue'
-import type { CesiumViewerManager } from '@cesium-kit/core'
+import { CesiumViewer } from '@sgyx/cesium-kit-vue'
+import type { CesiumViewerManager } from '@sgyx/cesium-kit-core'
 import Panel from './Panel.vue'
 
 function onReady(manager: CesiumViewerManager) {

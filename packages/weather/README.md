@@ -1,4 +1,4 @@
-# @cesium-kit/weather
+# @sgyx/cesium-kit-weather
 
 可选的 Cesium 天气预报插件包：
 
@@ -14,13 +14,13 @@
 ## 安装
 
 ```bash
-pnpm add cesium @cesium-kit/core @cesium-kit/weather
+pnpm add cesium @sgyx/cesium-kit-core @sgyx/cesium-kit-weather
 ```
 
 ## 使用
 
 ```ts
-import { createWeatherPlugin } from '@cesium-kit/weather'
+import { createWeatherPlugin } from '@sgyx/cesium-kit-weather'
 
 const weather = createWeatherPlugin({
   layers: [

@@ -1,19 +1,19 @@
-# @cesium-kit/vue
+# @sgyx/cesium-kit-vue
 
-`@cesium-kit/core` 的 Vue 3 适配层：一个 `<CesiumViewer>` 组件 + 一组 composables。
+`@sgyx/cesium-kit-core` 的 Vue 3 适配层：一个 `<CesiumViewer>` 组件 + 一组 composables。
 
 ## 安装
 
 ```bash
-pnpm add cesium vue @cesium-kit/core @cesium-kit/vue
-pnpm add -D @cesium-kit/vite
+pnpm add cesium vue @sgyx/cesium-kit-core @sgyx/cesium-kit-vue
+pnpm add -D @sgyx/cesium-kit-vite
 ```
 
 ```ts
 // vite.config.ts
 import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
-import { cesiumAssets } from '@cesium-kit/vite'
+import { cesiumAssets } from '@sgyx/cesium-kit-vite'
 
 export default defineConfig({ plugins: [vue(), cesiumAssets()] })
 ```
@@ -22,14 +22,14 @@ export default defineConfig({ plugins: [vue(), cesiumAssets()] })
 
 ```ts
 import 'cesium/Build/Cesium/Widgets/widgets.css'
-import '@cesium-kit/vue/style.css'
+import '@sgyx/cesium-kit-vue/style.css'
 ```
 
 ## 最小示例
 
 ```vue
 <script setup lang="ts">
-import { CesiumViewer } from '@cesium-kit/vue'
+import { CesiumViewer } from '@sgyx/cesium-kit-vue'
 </script>
 
 <template>
@@ -45,7 +45,7 @@ import { CesiumViewer } from '@cesium-kit/vue'
 ## 全局安装（可选）
 
 ```ts
-import { CesiumKit } from '@cesium-kit/vue'
+import { CesiumKit } from '@sgyx/cesium-kit-vue'
 
 app.use(CesiumKit, {
   ionToken: import.meta.env.VITE_CESIUM_ION_TOKEN,
@@ -57,12 +57,12 @@ app.use(CesiumKit, {
 
 ## 实体与标注
 
-基础实体由 `@cesium-kit/core` 的工厂创建，再交给 `useEntities()` 加入当前 Viewer：
+基础实体由 `@sgyx/cesium-kit-core` 的工厂创建，再交给 `useEntities()` 加入当前 Viewer：
 
 ```vue
 <script setup lang="ts">
-import { createLabel, createPoint } from '@cesium-kit/core'
-import { useEntities } from '@cesium-kit/vue'
+import { createLabel, createPoint } from '@sgyx/cesium-kit-core'
+import { useEntities } from '@sgyx/cesium-kit-vue'
 
 const { add } = useEntities()
 
@@ -143,7 +143,7 @@ await add(
 ```vue
 <script setup lang="ts">
 import { markers } from './features/markers'
-import { useFeature } from '@cesium-kit/vue'
+import { useFeature } from '@sgyx/cesium-kit-vue'
 
 const { registered } = useFeature(markers, { cities: [{ name: '北京', lon: 116.39, lat: 39.9 }] })
 </script>

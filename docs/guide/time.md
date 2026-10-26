@@ -36,7 +36,7 @@ manager.clock.onTick(({ currentTime }) => {
 
 ```ts
 import * as Cesium from 'cesium'
-import type { CesiumFeature } from '@cesium-kit/core'
+import type { CesiumFeature } from '@sgyx/cesium-kit-core'
 
 export const waterLevel: CesiumFeature = {
   name: 'water-level',

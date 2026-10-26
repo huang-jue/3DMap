@@ -1,5 +1,5 @@
 {
-  "name": "@cesium-kit/vue",
+  "name": "@sgyx/cesium-kit-vue",
   "version": "0.1.0",
   "description": "Cesium 基础能力的 Vue 3 适配层",
   "license": "MIT",
@@ -37,7 +37,7 @@
     "typecheck": "vue-tsc --noEmit"
   },
   "dependencies": {
-    "@cesium-kit/core": "workspace:^"
+    "@sgyx/cesium-kit-core": "workspace:^"
   },
   "peerDependencies": {
     "cesium": "^1.146.0",

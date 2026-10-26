@@ -6,7 +6,7 @@ import type {
   DrawResult,
   DrawSession,
   DrawType
-} from '@cesium-kit/core'
+} from '@sgyx/cesium-kit-core'
 import { useCesiumContext, whenReadySafe } from '../context'
 
 export interface UseDrawReturn {
