@@ -12,7 +12,7 @@
     "build": "pnpm --filter \"./packages/*\" build",
     "build:playground": "pnpm --filter playground build",
     "test": "pnpm --filter \"./packages/*\" test",
-    "typecheck": "pnpm --filter \"./packages/*\" typecheck",
+    "typecheck": "pnpm --workspace-concurrency=1 --filter \"./packages/*\" typecheck",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "format": "prettier --write .",
