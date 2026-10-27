@@ -37,9 +37,11 @@ export function createEarthVectorFeature(
   let disposed = false
 
   const particleOptions = () => ({
-    particlesTextureSize: settings.hd ? 192 : 96,
-    particleHeight: defaultOptions.vector.particleHeight ?? 50000,
-    speedFactor: defaultOptions.vector.speedFactor ?? 1.5,
+    renderer: 'trails' as const,
+    particlesTextureSize: settings.flowDensity ?? (settings.hd ? 192 : 128),
+    particleHeight: 100,
+    lineWidth: { min: settings.hd ? 1.1 : 0.85, max: 1.5 },
+    speedFactor: settings.flowSpeed ?? defaultOptions.vector.speedFactor ?? 1.5,
     colors: defaultOptions.vector.colors ?? ['#ffffff'],
     dynamic: settings.dynamic ?? true,
     followClock,
@@ -128,7 +130,9 @@ export function createEarthVectorFeature(
     setSettings(next) {
       settings = { ...settings, ...next }
       feature?.updateOptions({
-        particlesTextureSize: settings.hd ? 192 : 96,
+        particlesTextureSize: settings.flowDensity ?? (settings.hd ? 192 : 128),
+        speedFactor: settings.flowSpeed ?? defaultOptions.vector.speedFactor ?? 1.5,
+        lineWidth: { min: settings.hd ? 1.1 : 0.85, max: 1.5 },
         dynamic: settings.dynamic ?? true
       })
     },

@@ -208,7 +208,11 @@ export class EarthScalarLayer {
       tileWidth: this.tileSize(frame).width,
       tileHeight: this.tileSize(frame).height
     })
-    const layer = this.viewer.imageryLayers.addImageryProvider(provider)
+    const existingIndex = this.layer ? this.viewer.imageryLayers.indexOf(this.layer) : -1
+    const layer = this.viewer.imageryLayers.addImageryProvider(
+      provider,
+      existingIndex >= 0 ? existingIndex : undefined
+    )
     layer.show = this.visible
     layer.alpha = this.alphaValue
     return layer

@@ -75,7 +75,19 @@ function parseOverlay(value: unknown): EarthOverlayConfig {
     ...parseLegend(value, unit),
     max: num(value.max, 1),
     min: num(value.min, 0),
-    scale: value.scale === 'log' ? 'log' : 'linear'
+    scale: value.scale === 'log' ? 'log' : 'linear',
+    metadata: isRecord(value.metadata)
+      ? {
+          source: str(value.metadata.source),
+          resolution: num(value.metadata.resolution),
+          width: num(value.metadata.width),
+          height: num(value.metadata.height),
+          level: str(value.metadata.level),
+          times: Array.isArray(value.metadata.times)
+            ? value.metadata.times.filter((time): time is string => typeof time === 'string')
+            : []
+        }
+      : undefined
   }
 }
 
@@ -122,7 +134,9 @@ function parseWeather(value: unknown): EarthWeatherConfig | undefined {
   return {
     points: typeof value.points === 'string' ? value.points : undefined,
     warnings: typeof value.warnings === 'string' ? value.warnings : undefined,
-    windFarm: typeof value.windFarm === 'string' ? value.windFarm : undefined
+    windFarm: typeof value.windFarm === 'string' ? value.windFarm : undefined,
+    sample: value.sample === true,
+    sampleTime: value.sampleTime === undefined ? undefined : date(value.sampleTime)
   }
 }
 
@@ -141,7 +155,22 @@ export function parseEarthManifest(input: unknown): EarthManifest {
     bounds: parseBounds(input.bounds),
     modes,
     annotations: Array.isArray(input.annotations) ? input.annotations.map(parseAnnotation) : [],
-    weather: parseWeather(input.weather)
+    weather: parseWeather(input.weather),
+    metadata: isRecord(input.metadata)
+      ? {
+          kind: str(input.metadata.kind),
+          resolution: num(input.metadata.resolution),
+          width: num(input.metadata.width),
+          height: num(input.metadata.height),
+          level: str(input.metadata.level),
+          times: Array.isArray(input.metadata.times)
+            ? input.metadata.times.filter((value): value is string => typeof value === 'string')
+            : [],
+          provenance: str(input.metadata.provenance),
+          coastline:
+            typeof input.metadata.coastline === 'string' ? input.metadata.coastline : undefined
+        }
+      : undefined
   }
 }
 

@@ -635,9 +635,10 @@ writeFile('manifest.json', {
     }
   ],
   weather: {
+    sample: true,
     points: '/data/weather/cities.json',
     warnings: '/data/weather/warnings.geojson',
-    windFarm: '/data/weather/turbines.json'
+    windFarm: '/data/turbines.json'
   }
 })
 

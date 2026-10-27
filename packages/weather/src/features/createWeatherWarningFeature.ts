@@ -13,6 +13,8 @@ export interface WeatherWarningFeatureOptions extends WeatherWarningLayerOptions
   warnings: WeatherWarning[] | string
   name?: string
   showPopup?: boolean
+  /** Optional fixed time for explicitly labelled offline demonstration data. */
+  time?: Date
   onSelect?: (warning: WeatherWarning | null) => void
 }
 
@@ -78,6 +80,7 @@ export function createWeatherWarningFeature(
   let showPopup = defaultOptions.showPopup ?? true
   let onSelect = defaultOptions.onSelect
   let disposed = false
+  let fixedTime = defaultOptions.time
 
   const closePopup = (): void => {
     popup?.close()
@@ -116,6 +119,7 @@ export function createWeatherWarningFeature(
     ctxRef = ctx
     const merged: WeatherWarningFeatureOptions = { ...defaultOptions, ...options }
     showPopup = merged.showPopup ?? true
+    fixedTime = merged.time
     onSelect = merged.onSelect
     warnings = await loadWeatherWarnings(merged.warnings)
     if (disposed) return
@@ -126,7 +130,7 @@ export function createWeatherWarningFeature(
       onSelect: selectWarning,
       addEntity: (entity) => ctx.layers.add(entity)
     })
-    layer.setTime(ctx.clock.state.currentTime)
+    layer.setTime(fixedTime ?? ctx.clock.state.currentTime)
     if (ctx.layerManager) {
       nodeId = ctx.layerManager.addCustom('气象预警', {
         id: 'weather-layer:warnings',
@@ -148,7 +152,7 @@ export function createWeatherWarningFeature(
     const offPick = ctx.pick.on('click', ({ entity }) => layer?.handlePick(entity))
     const offMiss = ctx.pick.onMiss(() => selectWarning(null))
     unsubscribeTick = ctx.clock.onTick(({ currentTime }) => {
-      layer?.setTime(currentTime)
+      layer?.setTime(fixedTime ?? currentTime)
       refreshPopup()
     })
     ctx.layers.onDispose(() => {
@@ -175,6 +179,7 @@ export function createWeatherWarningFeature(
       selectWarning(warning ?? null)
     },
     setVisible(visible: boolean) {
+      if (!visible) selectWarning(null)
       visibleState = visible
       layer?.setVisible(visible)
       if (nodeId) ctxRef?.layerManager?.setVisible(nodeId, visible)

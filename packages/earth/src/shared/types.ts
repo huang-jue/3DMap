@@ -1,6 +1,6 @@
 export type EarthMode = 'atmosphere' | 'ocean' | 'chemistry' | 'particulate' | 'space' | 'biology'
 
-export type EarthProjection = '3D' | '2D' | 'COLUMBUS_VIEW'
+export type EarthProjection = '3D' | 'ORTHOGRAPHIC' | '2D' | 'COLUMBUS_VIEW'
 
 export type EarthInterpolation = 'bilinear' | 'nearest'
 
@@ -52,6 +52,14 @@ export interface EarthOverlayConfig extends EarthLegend {
   label: string
   data: string
   scale?: 'linear' | 'log'
+  metadata?: {
+    source: string
+    resolution: number
+    width: number
+    height: number
+    level: string
+    times: string[]
+  }
 }
 
 export interface EarthModeConfig {
@@ -75,6 +83,9 @@ export interface EarthWeatherConfig {
   points?: string
   warnings?: string
   windFarm?: string
+  /** Synthetic business overlays are separate from the real forecast field. */
+  sample?: boolean
+  sampleTime?: Date
 }
 
 export interface EarthManifest {
@@ -85,6 +96,16 @@ export interface EarthManifest {
   modes: EarthModeConfig[]
   annotations: EarthAnnotationConfig[]
   weather?: EarthWeatherConfig
+  metadata?: {
+    kind: string
+    resolution: number
+    width: number
+    height: number
+    level: string
+    times: string[]
+    provenance: string
+    coastline?: string
+  }
 }
 
 export interface EarthSettings {
@@ -95,6 +116,9 @@ export interface EarthSettings {
   infoBar: boolean
   bold: boolean
   fontScale: 'small' | 'normal' | 'large'
+  flowDensity?: number
+  flowSpeed?: number
+  overlayAlpha?: number
 }
 
 export const DEFAULT_EARTH_SETTINGS: EarthSettings = {
@@ -104,7 +128,10 @@ export const DEFAULT_EARTH_SETTINGS: EarthSettings = {
   interpolation: 'bilinear',
   infoBar: true,
   bold: false,
-  fontScale: 'normal'
+  fontScale: 'normal',
+  flowDensity: 128,
+  flowSpeed: 1.5,
+  overlayAlpha: 0.88
 }
 
 export type EarthPolygonGeometry =

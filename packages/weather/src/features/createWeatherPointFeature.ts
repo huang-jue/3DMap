@@ -10,6 +10,8 @@ export interface WeatherPointFeatureOptions extends WeatherPointLayerOptions {
   name?: string
   /** 点击后是否显示内置弹窗，默认 true */
   showPopup?: boolean
+  /** Optional fixed time for explicitly labelled offline demonstration data. */
+  time?: Date
   onSelect?: (point: WeatherPointForecast | null) => void
 }
 
@@ -102,6 +104,7 @@ export function createWeatherPointFeature(
   let showPopup = defaultOptions.showPopup ?? true
   let onSelect = defaultOptions.onSelect
   let disposed = false
+  let fixedTime = defaultOptions.time
 
   const closePopup = (): void => {
     popup?.close()
@@ -110,7 +113,7 @@ export function createWeatherPointFeature(
 
   const refreshPopup = (): void => {
     if (!ctxRef || !popup || !selected) return
-    popup.setContent(createPopupContent(selected, ctxRef.clock.state.currentTime))
+    popup.setContent(createPopupContent(selected, fixedTime ?? ctxRef.clock.state.currentTime))
   }
 
   const selectPoint = (point: WeatherPointForecast | null): void => {
@@ -125,7 +128,7 @@ export function createWeatherPointFeature(
         id: 'weather-point-popup',
         position: { lon: point.lon, lat: point.lat, height: 0 },
         title: point.name ?? '点预报',
-        content: createPopupContent(point, ctxRef.clock.state.currentTime)
+        content: createPopupContent(point, fixedTime ?? ctxRef.clock.state.currentTime)
       })
     }
     onSelect?.(point)
@@ -139,6 +142,7 @@ export function createWeatherPointFeature(
     ctxRef = ctx
     const merged: WeatherPointFeatureOptions = { ...defaultOptions, ...options }
     showPopup = merged.showPopup ?? true
+    fixedTime = merged.time
     onSelect = merged.onSelect
     points = await loadWeatherPoints(merged.points)
     if (disposed) return
@@ -192,6 +196,7 @@ export function createWeatherPointFeature(
       layer?.select(id)
     },
     setVisible(visible: boolean) {
+      if (!visible) layer?.clearSelection()
       visibleState = visible
       layer?.setVisible(visible)
       if (nodeId) ctxRef?.layerManager?.setVisible(nodeId, visible)

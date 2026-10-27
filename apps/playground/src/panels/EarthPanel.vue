@@ -11,6 +11,7 @@ import {
   VideoPlay
 } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
+import * as Cesium from 'cesium'
 import { useClock, useViewer } from '@sgyx/cesium-kit-vue'
 import {
   createEarthPlugin,
@@ -31,7 +32,7 @@ const emit = defineEmits<{
   close: []
 }>()
 
-const { manager } = useViewer()
+const { manager, whenReady } = useViewer()
 const { state } = useClock()
 
 const loading = ref(true)
@@ -47,6 +48,11 @@ const baseMap = ref<'classic' | 'detailed'>('classic')
 const speed = ref(21600)
 const timeValue = ref(new Date())
 const probe = ref<EarthProbeResult | null>(null)
+const hoveredProbe = ref<EarthProbeResult | null>(null)
+const dataset = ref<'real' | 'sample'>('real')
+const busy = ref(false)
+let probeMarker: Cesium.Entity | undefined
+let restoreEnvironment: (() => void) | undefined
 let pendingPlugin: EarthPlugin | null = null
 let cancelled = false
 const annotationVisible = reactive<Record<string, boolean>>({})
@@ -55,17 +61,48 @@ const weatherVisible = reactive({
   warnings: false,
   windFarm: false
 })
+type WeatherKey = keyof typeof weatherVisible
+const weatherBusy = reactive({ points: false, warnings: false, windFarm: false })
+const weatherStatus = reactive({ points: '', warnings: '', windFarm: '' })
+const weatherLabels = { points: '城市预报', warnings: '气象预警', windFarm: '风电场' }
+const weatherSources = { points: 'points', warnings: 'warnings', windFarm: 'windFarm' } as const
 const settings = reactive<EarthSettings>({ ...DEFAULT_EARTH_SETTINGS })
-const controlsOpen = ref(true)
+const controlsOpen = ref(false)
 const timelineValue = ref(0)
 
 const currentTime = computed(() => state.value?.currentTime ?? new Date())
+const readout = computed(() => probe.value ?? hoveredProbe.value)
+const flowSpeed = computed({
+  get: () => settings.flowSpeed ?? 1.5,
+  set: (value: number) => {
+    settings.flowSpeed = value
+    applySettings()
+  }
+})
+const flowDensity = computed({
+  get: () => settings.flowDensity ?? 128,
+  set: (value: number) => {
+    settings.flowDensity = value
+    applySettings()
+  }
+})
+const overlayOpacity = computed({
+  get: () => settings.overlayAlpha ?? 0.88,
+  set: (value: number) => {
+    settings.overlayAlpha = value
+    applySettings()
+  }
+})
+const frameTimes = computed(() => manifest.value?.metadata?.times ?? [])
 const timeProgress = computed(() => {
   const range = manifest.value?.range
   if (!range) return timelineValue.value
   const total = range.end.getTime() - range.start.getTime()
   if (total <= 0) return 0
-  return Math.min(100, Math.max(0, ((currentTime.value.getTime() - range.start.getTime()) / total) * 100))
+  return Math.min(
+    100,
+    Math.max(0, ((currentTime.value.getTime() - range.start.getTime()) / total) * 100)
+  )
 })
 const activeMode = computed<EarthModeConfig | null>(
   () => manifest.value?.modes.find((mode) => mode.id === modeId.value) ?? null
@@ -76,15 +113,30 @@ const activeOverlay = computed<EarthOverlayConfig | null>(
   () => overlays.value.find((item) => item.id === overlayId.value) ?? null
 )
 const legend = computed(() => activeOverlay.value)
+const fieldMetadata = computed(() => activeOverlay.value?.metadata ?? manifest.value?.metadata)
+const fieldSource = computed(() => activeOverlay.value?.metadata?.source ?? manifest.value?.source)
+const isPm25 = computed(() => dataset.value === 'real' && overlayId.value === 'pm25')
+const sampledTime = computed(() => {
+  const times = fieldMetadata.value?.times ?? []
+  if (!times.length) return currentTime.value
+  const target = currentTime.value.getTime()
+  return new Date(
+    times.reduce((best, time) =>
+      Math.abs(Date.parse(time) - target) < Math.abs(Date.parse(best) - target) ? time : best
+    )
+  )
+})
 const legendStyle = computed(() => ({
   background: `linear-gradient(90deg, ${(legend.value?.colors ?? []).join(', ')})`
 }))
 const legendTicks = computed(() => {
   const item = legend.value
   if (!item) return []
-  return [item.min, (item.min + item.max) / 2, item.max].map(
-    (value) => `${formatNumber(value)} ${item.unit}`
-  )
+  return [
+    item.min,
+    item.scale === 'log' ? Math.sqrt(item.min * item.max) : (item.min + item.max) / 2,
+    item.max
+  ].map((value) => `${formatNumber(value)} ${item.unit}`)
 })
 const panelClass = computed(() => ({
   'earth-bold': settings.bold,
@@ -119,39 +171,100 @@ function syncAnnotationsFromMode(): void {
 function syncSelectionsFromPlugin(): void {
   const plugin = earth.value
   if (!plugin) return
-  if (plugin.vector) vectorId.value = plugin.vector.id
-  if (plugin.overlay) overlayId.value = plugin.overlay.id
+  vectorId.value = plugin.vector?.id ?? ''
+  overlayId.value = plugin.overlay?.id ?? ''
 }
 
 async function enable(): Promise<void> {
   const instance = manager.value
   if (!instance) return
+  if (!restoreEnvironment) {
+    const viewer = instance.getViewer()
+    const previousClock = instance.clock.state
+    const previousView = instance.camera.getView()
+    const previousMode = instance.scene.getMode()
+    const previousOrthographic = viewer.camera.frustum instanceof Cesium.OrthographicFrustum
+    const previousBase = instance.imagery.active
+    const input = viewer.screenSpaceEventHandler
+    const previousClick = input.getInputAction(Cesium.ScreenSpaceEventType.LEFT_CLICK)
+    const previousDoubleClick = input.getInputAction(Cesium.ScreenSpaceEventType.LEFT_DOUBLE_CLICK)
+    // Core PickService owns Earth interactions. Cesium's built-in selection
+    // requests 3D-only imagery ray intersections when clicked in 2D.
+    input.removeInputAction(Cesium.ScreenSpaceEventType.LEFT_CLICK)
+    input.removeInputAction(Cesium.ScreenSpaceEventType.LEFT_DOUBLE_CLICK)
+    const visuals = {
+      sky: viewer.scene.skyBox?.show,
+      atmosphere: viewer.scene.skyAtmosphere?.show,
+      sun: viewer.scene.sun?.show,
+      background: viewer.scene.backgroundColor
+    }
+    if (viewer.scene.skyBox) viewer.scene.skyBox.show = false
+    if (viewer.scene.skyAtmosphere) viewer.scene.skyAtmosphere.show = false
+    if (viewer.scene.sun) viewer.scene.sun.show = false
+    viewer.scene.backgroundColor = Cesium.Color.fromCssColorString('#080c10')
+    restoreEnvironment = () => {
+      if (viewer.isDestroyed()) return
+      if (previousClick) input.setInputAction(previousClick, Cesium.ScreenSpaceEventType.LEFT_CLICK)
+      if (previousDoubleClick)
+        input.setInputAction(previousDoubleClick, Cesium.ScreenSpaceEventType.LEFT_DOUBLE_CLICK)
+      if (viewer.scene.skyBox && visuals.sky !== undefined) viewer.scene.skyBox.show = visuals.sky
+      if (viewer.scene.skyAtmosphere && visuals.atmosphere !== undefined)
+        viewer.scene.skyAtmosphere.show = visuals.atmosphere
+      if (viewer.scene.sun && visuals.sun !== undefined) viewer.scene.sun.show = visuals.sun
+      viewer.scene.backgroundColor = visuals.background
+      instance.scene.setMode(previousMode, 0)
+      if (previousMode === '3D') {
+        if (previousOrthographic) viewer.camera.switchToOrthographicFrustum()
+        else viewer.camera.switchToPerspectiveFrustum()
+      }
+      instance.camera.setView(previousView)
+      instance.imagery.switchTo(previousBase)
+      if (previousClock.startTime && previousClock.stopTime)
+        instance.clock.setRange(previousClock.startTime, previousClock.stopTime)
+      else instance.clock.clearRange()
+      instance.clock.seek(previousClock.currentTime)
+      instance.clock.setMultiplier(previousClock.multiplier)
+      instance.clock.loop(previousClock.loop)
+      if (previousClock.running) instance.clock.play()
+      else instance.clock.pause()
+    }
+  }
   loading.value = true
   errorText.value = ''
   pendingPlugin = null
   cancelled = false
   let pending: EarthPlugin | null = null
   try {
-    const response = await fetch('/data/earth/manifest.json')
+    const response = await fetch(
+      dataset.value === 'real' ? '/data/earth/real/manifest.json' : '/data/earth/manifest.json'
+    )
     if (!response.ok) {
       throw new Error(`地球样例加载失败 ${response.status} ${response.statusText}`)
     }
     const parsed = parseEarthManifest(await response.json())
     manifest.value = parsed
-    modeId.value = 'atmosphere'
+    const startPm25 =
+      dataset.value === 'real' &&
+      (new URLSearchParams(window.location.search).get('earth') === 'pm25' ||
+        window.location.hash.includes('particulates'))
+    modeId.value = startPm25 ? 'particulate' : 'atmosphere'
     syncAnnotationsFromMode()
     timeValue.value = new Date(parsed.range.start)
     const plugin = createEarthPlugin({
       data: parsed,
-      mode: 'atmosphere',
+      mode: modeId.value,
       vector: 'wind',
-      overlay: 'temperature',
+      overlay: startPm25 ? 'pm25' : dataset.value === 'real' ? 'wind-speed' : 'temperature',
       followClock: true,
       syncClockRange: true,
       settings,
       weather: true,
       onProbe: (result) => {
         probe.value = result
+        updateProbeMarker(result)
+      },
+      onHover: (result) => {
+        hoveredProbe.value = result
       },
       onModeChange: (mode) => {
         modeId.value = mode.id
@@ -175,11 +288,15 @@ async function enable(): Promise<void> {
     syncSelectionsFromPlugin()
     if (parsed.bounds) {
       instance.camera.setView({
-        lon: (parsed.bounds.west + parsed.bounds.east) / 2,
-        lat: (parsed.bounds.south + parsed.bounds.north) / 2,
-        height: 20_000_000
+        lon: 120,
+        lat: 22,
+        height: 16_000_000
       })
     }
+    instance.clock.pause()
+    if (startPm25) onProjection('ORTHOGRAPHIC')
+    instance.clock.loop(true)
+    instance.clock.setMultiplier(speed.value)
     loading.value = false
   } catch (error) {
     if (pending && manager.value?.features.has(pending.name)) {
@@ -189,6 +306,64 @@ async function enable(): Promise<void> {
     loading.value = false
     ElMessage.error(errorText.value)
   }
+}
+
+function updateProbeMarker(result: EarthProbeResult | null): void {
+  const viewer = manager.value?.getViewer()
+  if (!viewer) return
+  if (probeMarker) viewer.entities.remove(probeMarker)
+  probeMarker = result
+    ? viewer.entities.add({
+        id: 'earth-probe-marker',
+        position: Cesium.Cartesian3.fromDegrees(result.lon, result.lat, 200),
+        point: {
+          pixelSize: 9,
+          color: Cesium.Color.TRANSPARENT,
+          outlineColor: Cesium.Color.WHITE,
+          outlineWidth: 2,
+          disableDepthTestDistance: Number.POSITIVE_INFINITY
+        }
+      })
+    : undefined
+  viewer.scene.requestRender()
+}
+
+function clearProbe(): void {
+  probe.value = null
+  updateProbeMarker(null)
+}
+
+async function switchDataset(): Promise<void> {
+  if (busy.value) return
+  busy.value = true
+  const instance = manager.value
+  if (instance?.features.has('earth-plugin')) instance.features.unregister('earth-plugin')
+  earth.value = null
+  for (const key of Object.keys(weatherVisible) as WeatherKey[]) {
+    weatherVisible[key] = false
+    weatherStatus[key] = ''
+    weatherBusy[key] = false
+  }
+  probe.value = null
+  hoveredProbe.value = null
+  updateProbeMarker(null)
+  projection.value = '3D'
+  instance?.scene.setMode('3D', 0)
+  await enable()
+  busy.value = false
+}
+
+function stepFrame(direction: -1 | 1): void {
+  const times = frameTimes.value.map((value) => Date.parse(value))
+  const now = currentTime.value.getTime()
+  const target =
+    direction > 0
+      ? times.find((time) => time > now + 1000)
+      : times
+          .slice()
+          .reverse()
+          .find((time) => time < now - 1000)
+  if (target !== undefined) onTimeChange(new Date(target))
 }
 
 function close(): void {
@@ -205,21 +380,38 @@ function close(): void {
 
 async function onModeChange(value: EarthMode): Promise<void> {
   const plugin = earth.value
-  if (!plugin) return
+  if (!plugin || busy.value) return
+  busy.value = true
   modeId.value = value
+  overlayId.value = activeMode.value?.defaultOverlay ?? activeMode.value?.overlays[0]?.id ?? ''
+  vectorId.value = activeMode.value?.defaultVector ?? activeMode.value?.vectors[0]?.id ?? ''
   syncAnnotationsFromMode()
-  await plugin.setMode(value)
-  syncSelectionsFromPlugin()
+  try {
+    await plugin.setMode(value)
+    modeId.value = plugin.mode?.id ?? value
+    syncAnnotationsFromMode()
+    syncSelectionsFromPlugin()
+    if (dataset.value === 'real' && value === 'particulate') onProjection('ORTHOGRAPHIC')
+    if (probe.value) probe.value = plugin.probe(probe.value.lon, probe.value.lat)
+    if (hoveredProbe.value)
+      hoveredProbe.value = plugin.probe(hoveredProbe.value.lon, hoveredProbe.value.lat)
+  } catch (error) {
+    ElMessage.error(`模式切换失败：${errorMessage(error)}`)
+  } finally {
+    busy.value = false
+  }
 }
 
 async function onOverlayChange(value: string): Promise<void> {
+  if (busy.value || loading.value) return
   overlayId.value = value
   await earth.value?.setOverlay(value)
 }
 
 async function onVectorChange(value: string): Promise<void> {
+  if (busy.value || loading.value) return
   vectorId.value = value
-  await earth.value?.setVector(value)
+  await earth.value?.setVector(value || null)
 }
 
 function onAnnotation(id: string, value: boolean): void {
@@ -227,11 +419,65 @@ function onAnnotation(id: string, value: boolean): void {
   earth.value?.setAnnotation(id, value)
 }
 
-function onWeather(key: keyof typeof weatherVisible, value: boolean): void {
-  weatherVisible[key] = value
-  if (key === 'points') earth.value?.setWeatherPointsVisible(value)
-  else if (key === 'warnings') earth.value?.setWeatherWarningsVisible(value)
-  else earth.value?.setWindFarmVisible(value)
+async function onWeather(key: WeatherKey, value: boolean): Promise<void> {
+  const plugin = earth.value
+  if (!plugin || weatherBusy[key]) return
+  weatherBusy[key] = true
+  weatherStatus[key] = value ? '加载中…' : ''
+  try {
+    if (key === 'points') await plugin.setWeatherPointsVisible(value)
+    else if (key === 'warnings') await plugin.setWeatherWarningsVisible(value)
+    else await plugin.setWindFarmVisible(value)
+    if (earth.value !== plugin) return
+    weatherVisible[key] = value
+    const count =
+      key === 'points'
+        ? plugin.weatherPoints?.points.length
+        : key === 'warnings'
+          ? plugin.weatherWarnings?.warnings.length
+          : plugin.windFarm?.turbines.length
+    weatherStatus[key] = value ? `已加载 ${count ?? 0} 个` : ''
+  } catch (error) {
+    if (earth.value !== plugin) return
+    weatherVisible[key] = false
+    weatherStatus[key] = '加载失败，可重试'
+    ElMessage.error(`${weatherLabels[key]}加载失败：${errorMessage(error)}`)
+  } finally {
+    if (earth.value === plugin) weatherBusy[key] = false
+  }
+}
+
+function locateWeather(key: WeatherKey): void {
+  const plugin = earth.value
+  if (!plugin || !manager.value) return
+  let points: Array<{ lon: number; lat: number }> = []
+  if (key === 'points') points = plugin.weatherPoints?.points ?? []
+  else if (key === 'windFarm') points = plugin.windFarm?.turbines ?? []
+  else {
+    points = (plugin.weatherWarnings?.warnings ?? []).flatMap((warning) => {
+      const polygons =
+        warning.geometry.type === 'Polygon'
+          ? [warning.geometry.coordinates]
+          : warning.geometry.coordinates
+      return polygons.flatMap((polygon) =>
+        (polygon[0] ?? []).map((point) => ({ lon: point[0]!, lat: point[1]! }))
+      )
+    })
+  }
+  if (!points.length) {
+    ElMessage.info('当前图层没有可定位的数据')
+    return
+  }
+  const west = Math.min(...points.map((point) => point.lon))
+  const east = Math.max(...points.map((point) => point.lon))
+  const south = Math.min(...points.map((point) => point.lat))
+  const north = Math.max(...points.map((point) => point.lat))
+  manager.value.camera.setView({
+    lon: (west + east) / 2,
+    lat: (south + north) / 2,
+    height: Math.max(1_200_000, Math.max(east - west, north - south) * 180_000)
+  })
+  controlsOpen.value = false
 }
 
 function onProjection(value: EarthProjection): void {
@@ -241,9 +487,12 @@ function onProjection(value: EarthProjection): void {
 
 function onTimeChange(value: Date | null): void {
   if (!value) return
-  timeValue.value = value
-  earth.value?.setTime(value)
-  manager.value?.clock.seek(value)
+  const range = manifest.value?.range
+  const bounded = range
+    ? new Date(Math.min(range.end.getTime(), Math.max(range.start.getTime(), value.getTime())))
+    : value
+  timeValue.value = bounded
+  earth.value?.setTime(bounded)
 }
 
 function onTimelineInput(value: string): void {
@@ -251,7 +500,9 @@ function onTimelineInput(value: string): void {
   if (!range) return
   const next = Number(value)
   timelineValue.value = next
-  const time = new Date(range.start.getTime() + (range.end.getTime() - range.start.getTime()) * next / 100)
+  const time = new Date(
+    range.start.getTime() + ((range.end.getTime() - range.start.getTime()) * next) / 100
+  )
   onTimeChange(time)
 }
 
@@ -261,6 +512,8 @@ function onFollowClock(value: boolean): void {
 }
 
 function onPlay(): void {
+  onFollowClock(true)
+  manager.value?.clock.setMultiplier(speed.value)
   manager.value?.clock.play()
 }
 
@@ -288,7 +541,7 @@ function resetView(): void {
   manager.value?.camera.setView({
     lon: (data.bounds.west + data.bounds.east) / 2,
     lat: (data.bounds.south + data.bounds.north) / 2,
-    height: 20_000_000
+    height: 16_000_000
   })
 }
 
@@ -298,15 +551,28 @@ const speedOptions = [
   { value: 86400, label: '1 天/秒' }
 ]
 
-onMounted(() => {
-  void enable()
+onMounted(async () => {
+  try {
+    await whenReady()
+    if (!cancelled) await enable()
+  } catch (error) {
+    if (!cancelled) {
+      loading.value = false
+      errorText.value = errorMessage(error)
+    }
+  }
 })
 
 watch(timeProgress, (value) => {
   timelineValue.value = value
+  timeValue.value = currentTime.value
+  if (probe.value && earth.value) probe.value = earth.value.probe(probe.value.lon, probe.value.lat)
+  if (hoveredProbe.value && earth.value)
+    hoveredProbe.value = earth.value.probe(hoveredProbe.value.lon, hoveredProbe.value.lat)
 })
 
 onBeforeUnmount(() => {
+  updateProbeMarker(null)
   cancelled = true
   const instance = manager.value
   const plugin = earth.value ?? pendingPlugin
@@ -315,6 +581,7 @@ onBeforeUnmount(() => {
   }
   earth.value = null
   pendingPlugin = null
+  restoreEnvironment?.()
 })
 </script>
 
@@ -329,8 +596,21 @@ onBeforeUnmount(() => {
         {{ formatTime(currentTime) }} · {{ activeOverlay?.label ?? '数据加载中' }}
       </div>
       <div class="earth-hud-actions">
-        <el-button :icon="InfoFilled" circle text title="显示当前数据" @click="settings.infoBar = !settings.infoBar" />
-        <el-button :icon="controlsOpen ? Expand : Menu" circle text title="切换控制面板" @click="controlsOpen = !controlsOpen" />
+        <el-button
+          :icon="InfoFilled"
+          circle
+          text
+          title="显示当前数据"
+          @click="settings.infoBar = !settings.infoBar"
+        />
+        <el-button
+          :icon="controlsOpen ? Expand : Menu"
+          circle
+          text
+          title="切换控制面板"
+          @click="controlsOpen = !controlsOpen"
+        />
+        <el-button :icon="Close" circle text title="退出地球模式" @click="close" />
       </div>
     </div>
 
@@ -340,6 +620,7 @@ onBeforeUnmount(() => {
         :key="mode.id"
         class="earth-mode-chip"
         :class="{ active: mode.id === modeId }"
+        :disabled="busy || loading"
         type="button"
         @click="onModeChange(mode.id)"
       >
@@ -364,9 +645,27 @@ onBeforeUnmount(() => {
 
       <div v-else class="earth-scroll">
         <div class="earth-block">
+          <div class="earth-label">数据集</div>
+          <el-select
+            v-model="dataset"
+            :disabled="loading || busy"
+            aria-label="数据集"
+            @change="switchDataset"
+          >
+            <el-option value="real" label="真实 GFS + CAMS · 离线快照" />
+            <el-option value="sample" label="合成样例 · 六种模式" />
+          </el-select>
+          <p class="earth-meta">{{ fieldSource }}</p>
+          <p v-if="fieldMetadata" class="earth-meta">
+            {{ fieldMetadata.level }} · {{ fieldMetadata.width }} × {{ fieldMetadata.height }} ·
+            {{ fieldMetadata.times.length }} 个预报时刻
+          </p>
+        </div>
+        <div class="earth-block">
           <div class="earth-label">模式</div>
           <el-radio-group
             :model-value="modeId"
+            :disabled="busy || loading"
             size="small"
             @update:model-value="onModeChange($event as EarthMode)"
           >
@@ -382,9 +681,10 @@ onBeforeUnmount(() => {
             <el-select
               :model-value="vectorId"
               size="small"
-              :disabled="vectors.length === 0 || projection !== '3D'"
+              :disabled="vectors.length === 0 || busy"
               @update:model-value="onVectorChange(String($event))"
             >
+              <el-option value="" label="无流线 · 仅浓度色层" />
               <el-option
                 v-for="vector in vectors"
                 :key="vector.id"
@@ -398,7 +698,7 @@ onBeforeUnmount(() => {
             <el-select
               :model-value="overlayId"
               size="small"
-              :disabled="overlays.length === 0"
+              :disabled="overlays.length === 0 || busy"
               @update:model-value="onOverlayChange(String($event))"
             >
               <el-option
@@ -411,8 +711,8 @@ onBeforeUnmount(() => {
           </div>
         </div>
 
-        <div v-if="projection !== '3D'" class="earth-note">
-          平面/哥伦布模式暂不启用 GPU 粒子矢量场，切换回球面后自动恢复。
+        <div v-if="projection === '2D' || projection === 'COLUMBUS_VIEW'" class="earth-note">
+          当前投影支持连续风场轨迹，可继续拖动、缩放和点查。
         </div>
 
         <div class="earth-block">
@@ -423,6 +723,7 @@ onBeforeUnmount(() => {
             @update:model-value="onProjection($event as EarthProjection)"
           >
             <el-radio-button value="3D">球面</el-radio-button>
+            <el-radio-button value="ORTHOGRAPHIC">正交球面</el-radio-button>
             <el-radio-button value="2D">平面</el-radio-button>
             <el-radio-button value="COLUMBUS_VIEW">哥伦布</el-radio-button>
           </el-radio-group>
@@ -492,28 +793,38 @@ onBeforeUnmount(() => {
                 @update:model-value="onAnnotation(annotation.id, Boolean($event))"
               />
             </div>
-            <div class="earth-switch-row">
-              <span>城市预报</span>
-              <el-switch
-                :model-value="weatherVisible.points"
+            <p v-if="manifest?.weather?.sample" class="earth-meta earth-business-note">
+              城市预报、气象预警和风电场为合成业务样例。
+              <template v-if="manifest.weather.sampleTime">
+                业务演示时间：{{ formatTime(manifest.weather.sampleTime) }}，与 GFS 风场时间独立。
+              </template>
+            </p>
+            <div
+              v-for="key in ['points', 'warnings', 'windFarm'] as const"
+              :key="key"
+              class="earth-switch-row earth-weather-row"
+              :data-weather="key"
+            >
+              <span
+              >{{ weatherLabels[key] }}
+                <small v-if="weatherStatus[key]">{{ weatherStatus[key] }}</small></span
+              >
+              <el-button
+                v-if="weatherVisible[key]"
+                text
                 size="small"
-                @update:model-value="onWeather('points', Boolean($event))"
-              />
-            </div>
-            <div class="earth-switch-row">
-              <span>气象预警</span>
+                :aria-label="`定位${weatherLabels[key]}`"
+                @click="locateWeather(key)"
+              >
+                定位
+              </el-button>
               <el-switch
-                :model-value="weatherVisible.warnings"
+                :model-value="weatherVisible[key]"
+                :aria-label="weatherLabels[key]"
+                :loading="weatherBusy[key]"
+                :disabled="busy || loading || !manifest?.weather?.[weatherSources[key]]"
                 size="small"
-                @update:model-value="onWeather('warnings', Boolean($event))"
-              />
-            </div>
-            <div class="earth-switch-row">
-              <span>风电场</span>
-              <el-switch
-                :model-value="weatherVisible.windFarm"
-                size="small"
-                @update:model-value="onWeather('windFarm', Boolean($event))"
+                @update:model-value="onWeather(key, Boolean($event))"
               />
             </div>
           </div>
@@ -543,6 +854,45 @@ onBeforeUnmount(() => {
             <el-icon><Setting /></el-icon> 设置
           </div>
           <div class="earth-settings">
+            <div class="earth-control-field">
+              <label for="flow-density"
+              >流线密度 <span>{{ flowDensity }}</span></label
+              >
+              <input
+                id="flow-density"
+                v-model.number="flowDensity"
+                type="range"
+                min="64"
+                max="256"
+                step="32"
+              />
+            </div>
+            <div class="earth-control-field">
+              <label for="flow-speed"
+              >流动速度 <span>{{ flowSpeed }}×</span></label
+              >
+              <input
+                id="flow-speed"
+                v-model.number="flowSpeed"
+                type="range"
+                min="0.5"
+                max="4"
+                step="0.5"
+              />
+            </div>
+            <div class="earth-control-field">
+              <label for="overlay-opacity"
+              >叠加透明度 <span>{{ Math.round(overlayOpacity * 100) }}%</span></label
+              >
+              <input
+                id="overlay-opacity"
+                v-model.number="overlayOpacity"
+                type="range"
+                min="0"
+                max="1"
+                step="0.05"
+              />
+            </div>
             <div class="earth-row">
               <span>底图</span>
               <el-radio-group
@@ -594,16 +944,96 @@ onBeforeUnmount(() => {
 
         <div v-if="settings.infoBar" class="earth-info">
           <span>{{ activeMode?.label }} / {{ activeOverlay?.label ?? '无叠加层' }}</span>
-          <span class="mono">{{ manifest?.source }}</span>
+          <span class="mono">{{ fieldSource }}</span>
           <span class="mono">{{ formatTime(currentTime) }}</span>
         </div>
       </div>
     </section>
 
+    <aside v-if="!loading && settings.infoBar" class="earth-data-card">
+      <div class="earth-data-kicker">
+        {{
+          dataset === 'real'
+            ? isPm25
+              ? 'CAMS / 真实颗粒物预报'
+              : 'GFS / 真实预报快照'
+            : 'SYNTHETIC / 合成样例'
+        }}
+      </div>
+      <strong
+      >{{ activeOverlay?.label }} <span>{{ activeOverlay?.unit }}</span></strong
+      >
+      <div class="earth-legend" :style="legendStyle" />
+      <div class="earth-legend-labels mono">
+        <span v-for="tick in legendTicks" :key="tick">{{ tick }}</span>
+      </div>
+      <p v-if="fieldMetadata">
+        {{ fieldMetadata.resolution }}° 全球网格 · {{ fieldMetadata.level }}
+      </p>
+      <p>{{ fieldSource }}</p>
+      <p v-if="isPm25">对数色阶 · 蓝色低浓度 → 黄红色高浓度</p>
+      <p v-if="dataset === 'real'">色层有效时间 {{ formatTime(sampledTime) }} · 离线预报</p>
+      <p v-if="isPm25 && vectorId">流线：GFS 10 m 风 · 共享预报时刻</p>
+      <p>拖动旋转 · 滚轮缩放 · 点击固定点查</p>
+    </aside>
+
+    <aside v-if="readout" class="earth-readout-card">
+      <div class="earth-data-kicker">
+        {{ probe ? '固定点查' : '鼠标采样' }}
+        <button v-if="probe" type="button" aria-label="取消固定点查" @click="clearProbe">×</button>
+      </div>
+      <div class="mono">
+        {{ Math.abs(readout.lat).toFixed(2) }}°{{ readout.lat >= 0 ? 'N' : 'S' }} ·
+        {{ Math.abs(readout.lon).toFixed(2) }}°{{ readout.lon >= 0 ? 'E' : 'W' }}
+      </div>
+      <div v-if="readout.vector" class="earth-wind-value">
+        <span
+          class="earth-direction"
+          :style="{ transform: `rotate(${readout.vector.direction}deg)` }"
+        >↑</span
+        >
+        {{ readout.vector.speed.toFixed(1) }} <small>{{ readout.vector.unit }}</small>
+      </div>
+      <div v-if="readout.vector" class="earth-meta">
+        去向 {{ Math.round(readout.vector.direction) }}° · 来向
+        {{ Math.round((readout.vector.direction + 180) % 360) }}°
+      </div>
+      <div v-if="readout.overlay" class="earth-meta">
+        {{ activeOverlay?.label }} {{ formatNumber(readout.overlay.value) }}
+        {{ readout.overlay.unit }}
+      </div>
+    </aside>
+
     <div class="earth-hud earth-hud-bottom">
       <div class="earth-play-control">
+        <button
+          type="button"
+          class="earth-menu-toggle"
+          :aria-expanded="controlsOpen"
+          @click="controlsOpen = !controlsOpen"
+        >
+          earth <span>{{ controlsOpen ? '−' : '+' }}</span>
+        </button>
+        <button
+          type="button"
+          class="earth-step"
+          aria-label="上一预报时刻"
+          :disabled="!frameTimes.length"
+          @click="stepFrame(-1)"
+        >
+          ‹
+        </button>
         <el-button :icon="VideoPlay" circle text title="播放时间" @click="onPlay" />
         <el-button :icon="VideoPause" circle text title="暂停时间" @click="onPause" />
+        <button
+          type="button"
+          class="earth-step"
+          aria-label="下一预报时刻"
+          :disabled="!frameTimes.length"
+          @click="stepFrame(1)"
+        >
+          ›
+        </button>
       </div>
       <div class="earth-timeline">
         <div class="earth-timeline-label mono">{{ formatTime(manifest?.range.start) }}</div>
@@ -636,12 +1066,12 @@ onBeforeUnmount(() => {
 }
 
 .earth-panel {
-  pointer-events: none;
+  pointer-events: auto;
   position: absolute;
-  top: 72px;
+  top: 120px;
   left: 20px;
   bottom: 84px;
-  width: 384px;
+  width: 350px;
   max-width: calc(100vw - 40px);
   display: flex;
   flex-direction: column;
@@ -656,8 +1086,106 @@ onBeforeUnmount(() => {
   font-size: 14px;
 }
 
-.earth-panel > * {
+.earth-control-field {
+  margin-bottom: 12px;
+}
+.earth-control-field label {
+  display: flex;
+  justify-content: space-between;
+  color: #9ca3af;
+  font-size: 12px;
+}
+.earth-control-field input {
+  width: 100%;
+  accent-color: #6fceab;
+}
+.earth-data-card,
+.earth-readout-card {
   pointer-events: auto;
+  position: absolute;
+  right: 20px;
+  width: 270px;
+  padding: 16px;
+  color: #e2e8f0;
+  border: 1px solid #ffffff24;
+  border-radius: 6px;
+  background: #080c14bd;
+  backdrop-filter: blur(12px);
+}
+.earth-data-card {
+  bottom: 84px;
+}
+.earth-readout-card {
+  top: 72px;
+}
+.earth-data-card strong {
+  display: block;
+  font-size: 18px;
+  margin: 8px 0 12px;
+}
+.earth-data-card strong span {
+  color: #9ca3af;
+  font-size: 11px;
+  font-weight: 400;
+}
+.earth-data-card p {
+  margin: 8px 0 0;
+  font-size: 10px;
+  line-height: 1.5;
+  color: #94a3b8;
+}
+.earth-data-kicker {
+  display: flex;
+  justify-content: space-between;
+  color: #77d6b7;
+  font-size: 10px;
+  letter-spacing: 1px;
+  margin-bottom: 10px;
+}
+.earth-data-kicker button {
+  color: #94a3b8;
+  border: 0;
+  background: none;
+  cursor: pointer;
+}
+.earth-wind-value {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 28px;
+  margin: 12px 0;
+}
+.earth-wind-value small {
+  color: #94a3b8;
+  font-size: 12px;
+}
+.earth-direction {
+  display: inline-block;
+  font-size: 26px;
+  color: #77d6b7;
+}
+.earth-menu-toggle,
+.earth-step {
+  background: none;
+  border: 0;
+  color: #e2e8f0;
+  cursor: pointer;
+}
+.earth-menu-toggle {
+  font-size: 22px;
+  letter-spacing: -1px;
+  margin-right: 12px;
+}
+.earth-menu-toggle span {
+  font-size: 16px;
+  color: #77d6b7;
+}
+.earth-step {
+  font-size: 24px;
+}
+.earth-step:disabled {
+  opacity: 0.25;
+  cursor: default;
 }
 
 .earth-hud {
@@ -724,7 +1252,7 @@ onBeforeUnmount(() => {
   z-index: 2;
   display: flex;
   gap: 4px;
-  max-width: min(620px, calc(100vw - 420px));
+  max-width: calc(100vw - 40px);
   overflow-x: auto;
   padding: 4px;
   border-radius: 6px;
@@ -970,6 +1498,18 @@ onBeforeUnmount(() => {
   color: #cbd5e1;
   font-size: 12px;
 }
+.earth-weather-row > span {
+  flex: 1;
+}
+.earth-weather-row small {
+  display: block;
+  color: #77d6b7;
+  font-size: 10px;
+  margin-top: 3px;
+}
+.earth-business-note {
+  line-height: 1.6;
+}
 
 .earth-probe {
   padding: 8px 10px;
@@ -1044,6 +1584,40 @@ onBeforeUnmount(() => {
     left: 12px;
     right: 12px;
     max-width: none;
+  }
+  .earth-data-card {
+    width: 200px;
+    right: 12px;
+    bottom: 82px;
+    padding: 12px;
+  }
+  .earth-readout-card {
+    top: 120px;
+    right: 12px;
+    width: 200px;
+    padding: 12px;
+  }
+  .earth-timeline-label {
+    display: none;
+  }
+  .earth-current-readout {
+    min-width: 105px;
+  }
+  .earth-hud-bottom {
+    gap: 6px;
+    padding: 5px 8px;
+  }
+  .earth-play-control {
+    align-items: center;
+  }
+  .earth-menu-toggle {
+    font-size: 18px;
+    margin-right: 4px;
+  }
+  .earth-play-control :deep(.el-button) {
+    width: 26px;
+    height: 26px;
+    margin-left: 0;
   }
 }
 </style>

@@ -89,7 +89,7 @@ interface EarthPlugin {
   setWeatherPointsVisible(visible: boolean): void | Promise<void>
   setWeatherWarningsVisible(visible: boolean): void | Promise<void>
   setWindFarmVisible(visible: boolean): void | Promise<void>
-  setProjection(projection: '3D' | '2D' | 'COLUMBUS_VIEW'): void
+  setProjection(projection: '3D' | 'ORTHOGRAPHIC' | '2D' | 'COLUMBUS_VIEW'): void
   setTime(time: Date): void
   setTimeRange(start: Date, end: Date): void
   setFollowClock(enabled: boolean): void
@@ -100,6 +100,10 @@ interface EarthPlugin {
 ```
 
 ## 子能力
+
+叠加配置 `EarthOverlayConfig` 支持 `scale: 'linear' | 'log'`。
+可选 `metadata: { source, resolution, width, height, level, times }` 为各色层提供独立的来源、网格与预报帧时间；
+Playground 优先展示该字段，避免把 CAMS 浓度误标为 GFS 风场。
 
 ```ts
 createEarthScalarFeature(options): EarthScalarFeature
@@ -119,6 +123,9 @@ interface EarthSettings {
   infoBar: boolean
   bold: boolean
   fontScale: 'small' | 'normal' | 'large'
+  flowDensity?: number
+  flowSpeed?: number
+  overlayAlpha?: number
 }
 ```
 

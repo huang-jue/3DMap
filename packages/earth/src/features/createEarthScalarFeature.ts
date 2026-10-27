@@ -88,7 +88,7 @@ export function createEarthScalarFeature(
     const frame = frames[currentIndex] ?? frames[0]!
     layer = new EarthScalarLayer(ctx.viewer, data, {
       visible,
-      alpha: merged.alpha ?? 0.82,
+      alpha: merged.alpha ?? settings.overlayAlpha ?? 0.88,
       colors: merged.overlay.colors,
       min: merged.overlay.min,
       max: merged.overlay.max,
@@ -160,8 +160,12 @@ export function createEarthScalarFeature(
       else unsubscribe()
     },
     setSettings(next) {
+      const rerender =
+        (next.interpolation !== undefined && next.interpolation !== settings.interpolation) ||
+        (next.hd !== undefined && next.hd !== settings.hd)
       settings = { ...settings, ...next }
-      layer?.setSettings({ interpolation: settings.interpolation, hd: settings.hd })
+      if (rerender) layer?.setSettings({ interpolation: settings.interpolation, hd: settings.hd })
+      if (settings.overlayAlpha !== undefined && layer) layer.alpha = settings.overlayAlpha
     },
     getValueAt(lon, lat) {
       return layer?.getValueAt(lon, lat) ?? null

@@ -4,8 +4,11 @@ import type { WindData, WindLayerOptions as RawWindLayerOptions } from 'cesium-w
 import type { PrimitiveLike } from '@sgyx/cesium-kit-core'
 import { interpolateWind } from '../data/interpolate'
 import type { WindGrid, WindSample } from '../shared/types'
+import { ScreenSpaceWindLayer } from './ScreenSpaceWindLayer'
 
 export interface WindFieldLayerOptions {
+  /** GPU 3D particles, or projection-aware persistent screen-space trails. */
+  renderer?: 'gpu' | 'trails'
   /** 粒子纹理尺寸，粒子总数 = size²，默认 96 */
   particlesTextureSize?: number
   /** 粒子离地高度（米），默认 50000 */
@@ -116,7 +119,7 @@ function sampleRamp(colors: Cesium.Color[], value: number): Cesium.Color {
 }
 
 export class WindFieldLayer implements PrimitiveLike {
-  private layer: WindLayer | null = null
+  private layer: WindLayer | ScreenSpaceWindLayer | null = null
   private speedLayer: Cesium.ImageryLayer | null = null
   private grid: WindGrid
   private options: WindFieldLayerOptions
@@ -152,7 +155,10 @@ export class WindFieldLayer implements PrimitiveLike {
   add(): void {
     if (this.destroyed || this.added) return
     this.disableRequestRenderMode()
-    this.layer = this.createRawLayer()
+    this.layer =
+      this.options.renderer === 'trails'
+        ? new ScreenSpaceWindLayer(this.viewer, this.grid, this.options)
+        : this.createRawLayer()
     this.layer.show = this.visible
     this.updateSpeedOverlay()
     this.added = true
@@ -176,7 +182,8 @@ export class WindFieldLayer implements PrimitiveLike {
   updateData(grid: WindGrid): void {
     if (this.destroyed) return
     this.grid = grid
-    this.layer?.updateWindData(toRawWindData(grid))
+    if (this.layer instanceof ScreenSpaceWindLayer) this.layer.updateWindData(grid)
+    else this.layer?.updateWindData(toRawWindData(grid))
     this.updateSpeedOverlay()
     this.viewer.scene.requestRender()
   }
@@ -184,7 +191,8 @@ export class WindFieldLayer implements PrimitiveLike {
   updateOptions(options: Partial<WindFieldLayerOptions>): void {
     if (this.destroyed) return
     this.options = { ...this.options, ...definedOptions(options) }
-    this.layer?.updateOptions(this.toRawOptions())
+    if (this.layer instanceof ScreenSpaceWindLayer) this.layer.updateOptions(this.options)
+    else this.layer?.updateOptions(this.toRawOptions())
     this.updateSpeedOverlay()
     this.viewer.scene.requestRender()
   }
@@ -273,14 +281,9 @@ export class WindFieldLayer implements PrimitiveLike {
     }
   }
 
-
   private updateSpeedOverlay(): void {
     this.removeSpeedOverlay()
-    if (
-      !this.options.showSpeedOverlay ||
-      this.destroyed ||
-      this.viewer.isDestroyed()
-    ) {
+    if (!this.options.showSpeedOverlay || this.destroyed || this.viewer.isDestroyed()) {
       return
     }
     const canvas = this.createSpeedCanvas()
@@ -290,12 +293,7 @@ export class WindFieldLayer implements PrimitiveLike {
       url: canvas.toDataURL('image/png'),
       tileWidth: canvas.width,
       tileHeight: canvas.height,
-      rectangle: Cesium.Rectangle.fromDegrees(
-        bounds.west,
-        bounds.south,
-        bounds.east,
-        bounds.north
-      )
+      rectangle: Cesium.Rectangle.fromDegrees(bounds.west, bounds.south, bounds.east, bounds.north)
     })
     const layer = this.viewer.imageryLayers.addImageryProvider(provider)
     layer.alpha = this.options.speedOverlayAlpha ?? 0.4
@@ -321,17 +319,15 @@ export class WindFieldLayer implements PrimitiveLike {
     let min = Number.POSITIVE_INFINITY
     let max = Number.NEGATIVE_INFINITY
     for (let i = 0; i < values.length; i += 1) {
-      const value = speed
-        ? (speed[i] ?? 0)
-        : Math.hypot(u[i] ?? 0, v[i] ?? 0)
+      const value = speed ? (speed[i] ?? 0) : Math.hypot(u[i] ?? 0, v[i] ?? 0)
       values[i] = value
       if (value < min) min = value
       if (value > max) max = value
     }
     const range = max - min || 1
-    const colors = (
-      this.options.speedOverlayColors ?? DEFAULT_OPTIONS.speedOverlayColors
-    ).map((color) => Cesium.Color.fromCssColorString(color))
+    const colors = (this.options.speedOverlayColors ?? DEFAULT_OPTIONS.speedOverlayColors).map(
+      (color) => Cesium.Color.fromCssColorString(color)
+    )
 
     const source = document.createElement('canvas')
     source.width = width

@@ -37,7 +37,10 @@ const baseLayer = ref('naturalEarth')
 const sceneMode = ref<SceneModeName>('3D')
 const pluginEnabled = ref(false)
 const panelOpen = ref(true)
-const earthMode = ref(false)
+const earthMode = ref(
+  new URLSearchParams(window.location.search).get('earth') === 'pm25' ||
+    window.location.hash.includes('particulates')
+)
 const camera = reactive<CameraView>({
   lon: 0,
   lat: 0,
@@ -100,7 +103,7 @@ watch(pluginEnabled, async (enabled) => {
 
 <template>
   <div class="layout">
-    <header class="header">
+    <header v-if="!earthMode" class="header">
       <div class="brand">
         <el-icon :size="22"><MapLocation /></el-icon>
         <span>三维地图</span>
@@ -154,7 +157,7 @@ watch(pluginEnabled, async (enabled) => {
           </div>
         </div>
         <EarthPanel v-if="earthMode" @close="earthMode = false" />
-        <PickOverlay />
+        <PickOverlay v-if="!earthMode" />
       </CesiumViewer>
     </main>
   </div>

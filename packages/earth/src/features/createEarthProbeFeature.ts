@@ -4,6 +4,7 @@ import type { EarthProbeResult } from '../shared/types'
 export interface EarthProbeFeatureOptions {
   sample: (lon: number, lat: number) => EarthProbeResult
   onProbe?: (result: EarthProbeResult | null) => void
+  onHover?: (result: EarthProbeResult | null) => void
   name?: string
 }
 
@@ -15,16 +16,26 @@ export interface EarthProbeFeature extends CesiumFeature<EarthProbeFeatureOption
 export function createEarthProbeFeature(
   defaultOptions: EarthProbeFeatureOptions
 ): EarthProbeFeature {
+  let cleanup: (() => void) | undefined
   const install = (ctx: FeatureContext, options?: EarthProbeFeatureOptions): void => {
+    cleanup?.()
     const merged = { ...defaultOptions, ...options }
     const offClick = ctx.pick.on('click', ({ lonLatHeight }) => {
       merged.onProbe?.(merged.sample(lonLatHeight.lon, lonLatHeight.lat))
     })
-    const offMiss = ctx.pick.onMiss(() => merged.onProbe?.(null))
-    ctx.layers.onDispose(() => {
-      offClick()
-      offMiss()
+    const offHover = ctx.pick.on('hover', ({ lonLatHeight }) => {
+      merged.onHover?.(merged.sample(lonLatHeight.lon, lonLatHeight.lat))
     })
+    const offMiss = ctx.pick.onMiss((type) => {
+      if (type === 'click') merged.onProbe?.(null)
+      else merged.onHover?.(null)
+    })
+    cleanup = () => {
+      offClick()
+      offHover()
+      offMiss()
+    }
+    ctx.layers.onDispose(() => cleanup?.())
   }
 
   return {
@@ -33,6 +44,9 @@ export function createEarthProbeFeature(
     probeAt(lon, lat) {
       return defaultOptions.sample(lon, lat)
     },
-    dispose() {}
+    dispose() {
+      cleanup?.()
+      cleanup = undefined
+    }
   }
 }

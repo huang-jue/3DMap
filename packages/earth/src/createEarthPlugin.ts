@@ -8,6 +8,7 @@ import {
 } from '@sgyx/cesium-kit-weather'
 import { createWindFarmFeature, type WindFarmFeature } from '@sgyx/cesium-kit-wind'
 import { loadEarthManifest } from './data/loadEarthData'
+import { loadEarthCoastline } from './layers/EarthCoastlineLayer'
 import {
   createEarthAnnotationFeature,
   type EarthAnnotationFeature
@@ -48,6 +49,7 @@ export interface EarthPluginConfig {
   settings?: Partial<EarthSettings>
   weather?: boolean
   onProbe?: (result: EarthProbeResult | null) => void
+  onHover?: (result: EarthProbeResult | null) => void
   onModeChange?: (mode: EarthModeConfig) => void
   onError?: (key: string, error: unknown) => void
 }
@@ -137,11 +139,13 @@ export function createEarthPlugin(config: EarthPluginConfig): EarthPlugin {
   let weatherWarnings: WeatherWarningFeature | null = null
   let windFarm: WindFarmFeature | null = null
   let gridLayer: Cesium.ImageryLayer | null = null
+  let coastLayer: Cesium.ImageryLayer | null = null
   let ctxRef: FeatureContext | null = null
   let settings: EarthSettings = { ...DEFAULT_EARTH_SETTINGS, ...config.settings }
   let followClock = true
   let visible = true
-  let projection: EarthProjection = '3D'
+  let scalarRequest = 0
+  let vectorRequest = 0
   let activeConfig: EarthPluginConfig = config
   let disposed = false
   const errors: Partial<Record<string, unknown>> = {}
@@ -185,6 +189,7 @@ export function createEarthPlugin(config: EarthPluginConfig): EarthPlugin {
   }
 
   const installScalar = async (overlay: EarthOverlayConfig | null): Promise<void> => {
+    const request = ++scalarRequest
     if (!ctxRef) return
     disposeScalar()
     overlayConfig = overlay
@@ -203,11 +208,14 @@ export function createEarthPlugin(config: EarthPluginConfig): EarthPlugin {
         visible,
         settings
       })
-      if (disposed) {
+      if (disposed || request !== scalarRequest) {
         feature.dispose?.()
         return
       }
       scalarFeature = feature
+      // A newly installed scalar must stay below the transparent coastline/grid.
+      if (coastLayer) ctxRef.viewer.imageryLayers.raiseToTop(coastLayer)
+      if (gridLayer) ctxRef.viewer.imageryLayers.raiseToTop(gridLayer)
       delete errors.scalar
     } catch (error) {
       feature.dispose?.()
@@ -216,10 +224,11 @@ export function createEarthPlugin(config: EarthPluginConfig): EarthPlugin {
   }
 
   const installVector = async (vector: EarthVectorConfig | null): Promise<void> => {
+    const request = ++vectorRequest
     if (!ctxRef) return
     disposeVector()
     vectorConfig = vector
-    if (!vector || projection !== '3D') return
+    if (!vector) return
     const feature = createEarthVectorFeature({
       vector,
       followClock,
@@ -234,7 +243,7 @@ export function createEarthPlugin(config: EarthPluginConfig): EarthPlugin {
         visible,
         settings
       })
-      if (disposed) {
+      if (disposed || request !== vectorRequest) {
         feature.dispose?.()
         return
       }
@@ -284,64 +293,80 @@ export function createEarthPlugin(config: EarthPluginConfig): EarthPlugin {
   }
 
   const ensureWeatherPoints = async (): Promise<void> => {
-    if (weatherPoints || !manifest?.weather?.points || !ctxRef) return
+    if (weatherPoints) return
+    if (!manifest?.weather?.points || !ctxRef) throw new Error('当前数据集未配置城市预报数据')
+    const points = createWeatherPointFeature({
+      points: manifest.weather.points,
+      time: manifest.weather.sampleTime,
+      name: 'earth-weather-points',
+      visible: true,
+      showPopup: true
+    })
     try {
-      const points = createWeatherPointFeature({
-        points: manifest.weather.points,
-        name: 'earth-weather-points',
-        visible: true,
-        showPopup: true
-      })
       await points.install(ctxRef, {
         points: manifest.weather.points,
+        time: manifest.weather.sampleTime,
         name: 'earth-weather-points',
         visible: true,
         showPopup: true
       })
       if (disposed) points.dispose?.()
       else weatherPoints = points
+      delete errors['weather-points']
     } catch (error) {
+      points.dispose?.()
       report('weather-points', error)
+      throw error
     }
   }
 
   const ensureWeatherWarnings = async (): Promise<void> => {
-    if (weatherWarnings || !manifest?.weather?.warnings || !ctxRef) return
+    if (weatherWarnings) return
+    if (!manifest?.weather?.warnings || !ctxRef) throw new Error('当前数据集未配置气象预警数据')
+    const warnings = createWeatherWarningFeature({
+      warnings: manifest.weather.warnings,
+      time: manifest.weather.sampleTime,
+      name: 'earth-weather-warnings',
+      visible: true,
+      showPopup: true
+    })
     try {
-      const warnings = createWeatherWarningFeature({
-        warnings: manifest.weather.warnings,
-        name: 'earth-weather-warnings',
-        visible: true,
-        showPopup: true
-      })
       await warnings.install(ctxRef, {
         warnings: manifest.weather.warnings,
+        time: manifest.weather.sampleTime,
         name: 'earth-weather-warnings',
         visible: true,
         showPopup: true
       })
       if (disposed) warnings.dispose?.()
       else weatherWarnings = warnings
+      delete errors['weather-warnings']
     } catch (error) {
+      warnings.dispose?.()
       report('weather-warnings', error)
+      throw error
     }
   }
 
   const ensureWindFarm = async (): Promise<void> => {
-    if (windFarm || !manifest?.weather?.windFarm || !ctxRef) return
+    if (windFarm) return
+    if (!manifest?.weather?.windFarm || !ctxRef) throw new Error('当前数据集未配置风电场数据')
+    const farm = createWindFarmFeature({
+      turbines: manifest.weather.windFarm,
+      name: 'earth-wind-farm'
+    })
     try {
-      const farm = createWindFarmFeature({
-        turbines: manifest.weather.windFarm,
-        name: 'earth-wind-farm'
-      })
       await farm.install(ctxRef, {
         turbines: manifest.weather.windFarm,
         name: 'earth-wind-farm'
       })
       if (disposed) farm.dispose?.()
       else windFarm = farm
+      delete errors['wind-farm']
     } catch (error) {
+      farm.dispose?.()
       report('wind-farm', error)
+      throw error
     }
   }
 
@@ -413,10 +438,21 @@ export function createEarthPlugin(config: EarthPluginConfig): EarthPlugin {
 
     probeFeature = createEarthProbeFeature({
       sample: probe,
-      onProbe: merged.onProbe
+      onProbe: merged.onProbe,
+      onHover: merged.onHover
     })
-    probeFeature.install(ctx, { sample: probe, onProbe: merged.onProbe })
+    probeFeature.install(ctx, { sample: probe, onProbe: merged.onProbe, onHover: merged.onHover })
     applyGrid()
+
+    if (manifest.metadata?.coastline) {
+      try {
+        const provider = await loadEarthCoastline(manifest.metadata.coastline)
+        if (disposed) return
+        coastLayer = ctx.viewer.imageryLayers.addImageryProvider(provider)
+      } catch (error) {
+        report('coastline', error)
+      }
+    }
 
     if (merged.syncClockRange !== false) {
       ctx.clock.setRange(manifest.range.start, manifest.range.end)
@@ -438,9 +474,11 @@ export function createEarthPlugin(config: EarthPluginConfig): EarthPlugin {
       feature.setVisible(annotationVisibility.get(feature.annotation.id) ?? false)
     })
     await ensureDefaultAnnotations()
+    if (mode !== nextMode || disposed) return
     await installScalar(
       overlayById(nextMode, nextMode.defaultOverlay) ?? nextMode.overlays[0] ?? null
     )
+    if (mode !== nextMode || disposed) return
     await installVector(vectorById(nextMode, nextMode.defaultVector) ?? nextMode.vectors[0] ?? null)
     activeConfig.onModeChange?.(nextMode)
   }
@@ -510,16 +548,24 @@ export function createEarthPlugin(config: EarthPluginConfig): EarthPlugin {
     },
     setProjection(value) {
       if (!ctxRef || ctxRef.viewer.isDestroyed()) return
-      projection = value
+      const scene = ctxRef.viewer.scene
+      if (value === 'ORTHOGRAPHIC') {
+        scene.morphTo3D(0)
+        scene.camera.switchToOrthographicFrustum()
+        const frustum = scene.camera.frustum as Cesium.OrthographicFrustum
+        frustum.width = scene.globe.ellipsoid.maximumRadius * 2.4 *
+          Math.max(1, scene.canvas.clientWidth / scene.canvas.clientHeight)
+        scene.requestRender()
+        return
+      }
+      if (scene.mode === Cesium.SceneMode.SCENE3D)
+        scene.camera.switchToPerspectiveFrustum()
       if (value === '2D') {
-        disposeVector()
         ctxRef.viewer.scene.morphTo2D(1)
       } else if (value === 'COLUMBUS_VIEW') {
-        disposeVector()
         ctxRef.viewer.scene.morphToColumbusView(1)
       } else {
         ctxRef.viewer.scene.morphTo3D(1)
-        void installVector(vectorConfig)
       }
     },
     setTime(time) {
@@ -545,6 +591,8 @@ export function createEarthPlugin(config: EarthPluginConfig): EarthPlugin {
     },
     dispose() {
       disposed = true
+      scalarRequest++
+      vectorRequest++
       probeFeature?.dispose?.()
       disposeScalar()
       disposeVector()
@@ -561,6 +609,9 @@ export function createEarthPlugin(config: EarthPluginConfig): EarthPlugin {
         ctxRef.viewer.imageryLayers.remove(gridLayer, true)
       }
       gridLayer = null
+      if (coastLayer && ctxRef && !ctxRef.viewer.isDestroyed())
+        ctxRef.viewer.imageryLayers.remove(coastLayer, true)
+      coastLayer = null
       mode = null
       overlayConfig = null
       vectorConfig = null
