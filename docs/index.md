@@ -21,6 +21,6 @@ features:
     details: 投影切换后自动回写相机视角；相机变化基于 camera.changed 事件，无轮询。
   - title: 类型完整
     details: 全量 TypeScript 实现，产物附带 .d.ts，Cesium 走 peerDependency 不重复打包。
-  - title: 可选天气与风场插件
-    details: 按项目配置启用天气预报多图层、气象风场粒子流或风电场图层，不安装即不参与构建。
+  - title: 可选天气、四预、地球与风场插件
+    details: 按项目配置启用天气预报、水旱灾害防御四预、全球地球可视化、气象风场或风电场图层，不安装即不参与构建。
 ---

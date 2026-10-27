@@ -1,0 +1,125 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "fire-0",
+        "name": "加州山火",
+        "level": "high"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -120,
+          38
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "fire-1",
+        "name": "亚马逊火点",
+        "level": "medium"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -60,
+          -8
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "fire-2",
+        "name": "刚果火点",
+        "level": "medium"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          20,
+          0
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "fire-3",
+        "name": "澳洲火点",
+        "level": "high"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          135,
+          -25
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "fire-4",
+        "name": "华南火点",
+        "level": "low"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          110,
+          25
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "fire-5",
+        "name": "西伯利亚火点",
+        "level": "medium"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          80,
+          55
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "fire-6",
+        "name": "阿拉斯加火点",
+        "level": "low"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -150,
+          62
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "fire-7",
+        "name": "地中海火点",
+        "level": "medium"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          30,
+          40
+        ]
+      }
+    }
+  ]
+}

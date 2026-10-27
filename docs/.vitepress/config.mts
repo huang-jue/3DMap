@@ -23,6 +23,8 @@ export default defineConfig({
             { text: '弹窗与标注聚合', link: '/guide/popup-cluster' },
             { text: '时间轴', link: '/guide/time' },
             { text: '天气预报', link: '/guide/weather' },
+            { text: '水旱灾害防御四预', link: '/guide/flood' },
+            { text: '地球可视化', link: '/guide/earth' },
             { text: '风场', link: '/guide/wind' },
             { text: '业务插件开发', link: '/guide/feature' },
             { text: '常见问题', link: '/guide/faq' }
@@ -36,6 +38,8 @@ export default defineConfig({
             { text: '@sgyx/cesium-kit-core', link: '/api/core' },
             { text: '@sgyx/cesium-kit-vue', link: '/api/vue' },
             { text: '@sgyx/cesium-kit-weather', link: '/api/weather' },
+            { text: '@sgyx/cesium-kit-flood', link: '/api/flood' },
+            { text: '@sgyx/cesium-kit-earth', link: '/api/earth' },
             { text: '@sgyx/cesium-kit-wind', link: '/api/wind' },
             { text: '@sgyx/cesium-kit-vite', link: '/api/vite' }
           ]

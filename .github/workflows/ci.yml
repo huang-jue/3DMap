@@ -47,6 +47,14 @@ jobs:
           test -f packages/vue/dist/index.d.ts
           test -f packages/vite/dist/index.js
           test -f packages/vite/dist/index.d.ts
+          test -f packages/weather/dist/index.js
+          test -f packages/weather/dist/index.d.ts
+          test -f packages/flood/dist/index.js
+          test -f packages/flood/dist/index.d.ts
+          test -f packages/earth/dist/index.js
+          test -f packages/earth/dist/index.d.ts
+          test -f packages/wind/dist/index.js
+          test -f packages/wind/dist/index.d.ts
 
       - name: Verify tarball install in clean project
         run: pnpm verify:pack

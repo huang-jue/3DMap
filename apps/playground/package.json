@@ -10,12 +10,15 @@
     "typecheck": "vue-tsc --noEmit"
   },
   "dependencies": {
+    "@element-plus/icons-vue": "^2.3.2",
     "@sgyx/cesium-kit-core": "workspace:^",
+    "@sgyx/cesium-kit-earth": "workspace:^",
+    "@sgyx/cesium-kit-flood": "workspace:^",
     "@sgyx/cesium-kit-vue": "workspace:^",
     "@sgyx/cesium-kit-weather": "workspace:^",
     "@sgyx/cesium-kit-wind": "workspace:^",
-    "@element-plus/icons-vue": "^2.3.2",
     "cesium": "^1.146.0",
+    "echarts": "^5.6.0",
     "element-plus": "^2.14.7",
     "vue": "^3.5.44"
   },

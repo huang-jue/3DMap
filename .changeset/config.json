@@ -8,6 +8,8 @@
       "@sgyx/cesium-kit-core",
       "@sgyx/cesium-kit-vue",
       "@sgyx/cesium-kit-weather",
+      "@sgyx/cesium-kit-flood",
+      "@sgyx/cesium-kit-earth",
       "@sgyx/cesium-kit-wind",
       "@sgyx/cesium-kit-vite"
     ]

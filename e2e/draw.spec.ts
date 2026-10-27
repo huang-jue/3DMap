@@ -12,8 +12,8 @@ test('绘制线并完成距离量算', async ({ page }) => {
   expect(box).toBeTruthy()
   if (!box) return
 
-  const first = { x: box.x + box.width * 0.22, y: box.y + box.height * 0.5 }
-  const second = { x: box.x + box.width * 0.36, y: box.y + box.height * 0.5 }
+  const first = { x: box.x + box.width * 0.62, y: box.y + box.height * 0.5 }
+  const second = { x: box.x + box.width * 0.74, y: box.y + box.height * 0.5 }
 
   await page.mouse.click(first.x, first.y)
   await page.mouse.click(second.x, second.y)

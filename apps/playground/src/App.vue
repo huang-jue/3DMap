@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { reactive, ref, watch } from 'vue'
-import { Aim, MapLocation } from '@element-plus/icons-vue'
+import { Aim, Expand, Fold, MapLocation } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import { CesiumViewer } from '@sgyx/cesium-kit-vue'
 import type {
@@ -16,8 +16,8 @@ import LayerPanel from './panels/LayerPanel.vue'
 import LayerTreePanel from './panels/LayerTreePanel.vue'
 import DrawPanel from './panels/DrawPanel.vue'
 import MarkerPanel from './panels/MarkerPanel.vue'
-import WindPanel from './panels/WindPanel.vue'
-import WeatherPanel from './panels/WeatherPanel.vue'
+import FloodPanel from './panels/FloodPanel.vue'
+import EarthPanel from './panels/EarthPanel.vue'
 import PersistencePanel from './panels/PersistencePanel.vue'
 import SelectionPanel from './panels/SelectionPanel.vue'
 import PickOverlay from './panels/PickOverlay.vue'
@@ -36,6 +36,8 @@ const mapRef = ref<CesiumViewerExposed | null>(null)
 const baseLayer = ref('naturalEarth')
 const sceneMode = ref<SceneModeName>('3D')
 const pluginEnabled = ref(false)
+const panelOpen = ref(true)
+const earthMode = ref(false)
 const camera = reactive<CameraView>({
   lon: 0,
   lat: 0,
@@ -44,8 +46,6 @@ const camera = reactive<CameraView>({
   pitch: 0,
   roll: 0
 })
-
-const windEnabled = import.meta.env.VITE_ENABLE_WIND !== 'false'
 
 const viewerOptions = {
   showCredits: false,
@@ -107,6 +107,9 @@ watch(pluginEnabled, async (enabled) => {
       </div>
       <div class="actions">
         <el-button :icon="Aim" @click="mapRef?.flyHome()">复位视角</el-button>
+        <el-button :type="earthMode ? 'primary' : 'default'" @click="earthMode = !earthMode">
+          {{ earthMode ? '退出地球模式' : '地球模式' }}
+        </el-button>
       </div>
     </header>
 
@@ -120,25 +123,37 @@ watch(pluginEnabled, async (enabled) => {
         @error="onError"
         @camera-change="onCameraChange"
       >
-        <div class="panel-column">
-          <ScenePanel
-            v-model:base-layer="baseLayer"
-            v-model:scene-mode="sceneMode"
-            v-model:plugin-enabled="pluginEnabled"
-            :view="camera"
-            @share="shareView"
-            @screenshot-error="onScreenshotError"
-          />
-          <TimePanel />
-          <DrawPanel />
-          <PersistencePanel />
-          <SelectionPanel />
-          <LayerPanel />
-          <LayerTreePanel />
-          <MarkerPanel />
-          <WeatherPanel />
-          <WindPanel v-if="windEnabled" />
+        <div v-if="!earthMode" class="workbench" :class="{ collapsed: !panelOpen }">
+          <div class="workbench-head">
+            <span v-if="panelOpen" class="workbench-title">工作台</span>
+            <el-button
+              :icon="panelOpen ? Fold : Expand"
+              size="small"
+              text
+              :title="panelOpen ? '收起工作台' : '展开工作台'"
+              @click="panelOpen = !panelOpen"
+            />
+          </div>
+          <div v-show="panelOpen" class="panel-scroll">
+            <ScenePanel
+              v-model:base-layer="baseLayer"
+              v-model:scene-mode="sceneMode"
+              v-model:plugin-enabled="pluginEnabled"
+              :view="camera"
+              @share="shareView"
+              @screenshot-error="onScreenshotError"
+            />
+            <TimePanel />
+            <DrawPanel />
+            <PersistencePanel />
+            <SelectionPanel />
+            <LayerPanel />
+            <LayerTreePanel />
+            <MarkerPanel />
+            <FloodPanel />
+          </div>
         </div>
+        <EarthPanel v-if="earthMode" @close="earthMode = false" />
         <PickOverlay />
       </CesiumViewer>
     </main>
@@ -180,25 +195,83 @@ watch(pluginEnabled, async (enabled) => {
   min-height: 0;
 }
 
-.panel-column {
+.workbench {
   position: absolute;
   top: 16px;
-  right: 16px;
-  z-index: 10;
+  left: 16px;
+  bottom: 16px;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 420px;
+  max-width: calc(100vw - 32px);
+  padding: 12px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(11, 16, 32, 0.88);
+  backdrop-filter: blur(14px);
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.45);
+}
+
+.workbench.collapsed {
+  bottom: auto;
+  width: auto;
+  padding: 6px;
+  background: rgba(17, 24, 39, 0.92);
+}
+
+.workbench-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 28px;
+}
+
+.workbench-title {
+  color: #e5e7eb;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 1px;
+}
+
+.panel-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
   display: flex;
   flex-direction: column;
   gap: 12px;
-  max-height: calc(100% - 32px);
-  overflow-y: auto;
-  padding-right: 2px;
+  padding-right: 4px;
 }
 
-.panel-column::-webkit-scrollbar {
+.panel-scroll::-webkit-scrollbar {
   width: 6px;
 }
 
-.panel-column::-webkit-scrollbar-thumb {
+.panel-scroll::-webkit-scrollbar-thumb {
   background: rgba(255, 255, 255, 0.18);
   border-radius: 3px;
+}
+
+.panel-scroll :deep(.cesium-panel),
+.panel-scroll :deep(.selection-panel),
+.panel-scroll :deep(.flood-panel) {
+  width: 100% !important;
+}
+
+.panel-scroll :deep(.hint) {
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+@media (max-width: 720px) {
+  .workbench {
+    top: 12px;
+    left: 12px;
+    bottom: 12px;
+    width: min(420px, calc(100vw - 24px));
+  }
 }
 </style>

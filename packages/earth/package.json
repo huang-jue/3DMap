@@ -1,0 +1,69 @@
+{
+  "name": "@sgyx/cesium-kit-earth",
+  "version": "0.1.0",
+  "description": "Cesium 全球地球可视化插件：风场、洋流、标量叠加、时间与点查",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/huang-jue/3DMap.git",
+    "directory": "packages/earth"
+  },
+  "homepage": "https://github.com/huang-jue/3DMap#readme",
+  "bugs": {
+    "url": "https://github.com/huang-jue/3DMap/issues"
+  },
+  "author": "cesium-kit contributors",
+  "type": "module",
+  "sideEffects": false,
+  "files": [
+    "dist"
+  ],
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "scripts": {
+    "build": "vite build",
+    "dev": "vite build --watch",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@sgyx/cesium-kit-core": "workspace:^",
+    "@sgyx/cesium-kit-weather": "workspace:^",
+    "@sgyx/cesium-kit-wind": "workspace:^"
+  },
+  "peerDependencies": {
+    "cesium": "^1.146.0"
+  },
+  "keywords": [
+    "cesium",
+    "earth",
+    "weather",
+    "ocean",
+    "wind",
+    "particles",
+    "gis",
+    "3d",
+    "map"
+  ],
+  "devDependencies": {
+    "@types/node": "^26.6.5",
+    "cesium": "^1.146.0",
+    "jsdom": "^30.1.3",
+    "typescript": "^6.0.3",
+    "vite": "^8.3.4",
+    "vite-plugin-dts": "^5.1.2",
+    "vitest": "^5.0.5"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

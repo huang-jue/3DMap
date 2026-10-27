@@ -1,0 +1,73 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "coral-pacific",
+        "name": "太平洋珊瑚白化区"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              150,
+              -20
+            ],
+            [
+              180,
+              -20
+            ],
+            [
+              180,
+              5
+            ],
+            [
+              150,
+              5
+            ],
+            [
+              150,
+              -20
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "coral-caribbean",
+        "name": "加勒比珊瑚白化区"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -85,
+              12
+            ],
+            [
+              -60,
+              12
+            ],
+            [
+              -60,
+              25
+            ],
+            [
+              -85,
+              25
+            ],
+            [
+              -85,
+              12
+            ]
+          ]
+        ]
+      }
+    }
+  ]
+}

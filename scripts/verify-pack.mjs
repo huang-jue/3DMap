@@ -15,7 +15,7 @@ import { fileURLToPath } from 'node:url'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const keep = process.argv.includes('--keep')
-const PACKAGES = ['core', 'vue', 'weather', 'wind', 'vite']
+const PACKAGES = ['core', 'vue', 'weather', 'flood', 'earth', 'wind', 'vite']
 
 function run(command, args, cwd) {
   const result = spawnSync(command, args, {
@@ -70,12 +70,14 @@ try {
     run('pnpm', ['--filter', `./packages/${name}`, 'pack', '--pack-destination', packDir], root)
   }
 
-  const versions = { 'vue': '^3.5.44', 'vite': '^8.3.4', 'typescript': '^6.0.3' }
+  const versions = { vue: '^3.5.44', vite: '^8.3.4', typescript: '^6.0.3' }
   const fixturePkg = JSON.parse(readFileSync(path.join(appDir, 'package.json'), 'utf8'))
   fixturePkg.dependencies = {
     '@sgyx/cesium-kit-core': toFileUrl(tarballPath(packDir, 'core')),
     '@sgyx/cesium-kit-vue': toFileUrl(tarballPath(packDir, 'vue')),
     '@sgyx/cesium-kit-weather': toFileUrl(tarballPath(packDir, 'weather')),
+    '@sgyx/cesium-kit-flood': toFileUrl(tarballPath(packDir, 'flood')),
+    '@sgyx/cesium-kit-earth': toFileUrl(tarballPath(packDir, 'earth')),
     '@sgyx/cesium-kit-wind': toFileUrl(tarballPath(packDir, 'wind')),
     '@sgyx/cesium-kit-vite': toFileUrl(tarballPath(packDir, 'vite')),
     cesium: '^1.146.0',
@@ -84,7 +86,7 @@ try {
   fixturePkg.devDependencies = {
     '@vitejs/plugin-vue': '^6.0.10',
     typescript: versions.typescript,
-    'vite': versions.vite,
+    vite: versions.vite,
     'vue-tsc': '^3.1.1'
   }
   writeFileSync(
@@ -92,20 +94,28 @@ try {
     `${JSON.stringify(fixturePkg, null, 2)}\n`,
     'utf8'
   )
-  writeFileSync(path.join(appDir, 'tsconfig.json'), `${JSON.stringify({
-    compilerOptions: {
-      target: 'ES2022',
-      module: 'ESNext',
-      moduleResolution: 'bundler',
-      lib: ['ES2022', 'DOM'],
-      strict: true,
-      skipLibCheck: true,
-      noEmit: true,
-      jsx: 'preserve',
-      types: ['vite/client']
-    },
-    include: ['src/**/*.ts', 'src/**/*.vue', 'vite.config.ts']
-  }, null, 2)}\n`, 'utf8')
+  writeFileSync(
+    path.join(appDir, 'tsconfig.json'),
+    `${JSON.stringify(
+      {
+        compilerOptions: {
+          target: 'ES2022',
+          module: 'ESNext',
+          moduleResolution: 'bundler',
+          lib: ['ES2022', 'DOM'],
+          strict: true,
+          skipLibCheck: true,
+          noEmit: true,
+          jsx: 'preserve',
+          types: ['vite/client']
+        },
+        include: ['src/**/*.ts', 'src/**/*.vue', 'vite.config.ts']
+      },
+      null,
+      2
+    )}\n`,
+    'utf8'
+  )
 
   console.log('[verify-pack] 安装 tarball 依赖')
   run('npm', ['install', '--no-audit', '--no-fund'], appDir)

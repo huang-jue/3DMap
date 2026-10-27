@@ -1,7 +1,16 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
-import { useCamera, useClock, useEntities, usePick, useSceneMode, useViewer } from '@sgyx/cesium-kit-vue'
+import {
+  useCamera,
+  useClock,
+  useEntities,
+  usePick,
+  useSceneMode,
+  useViewer
+} from '@sgyx/cesium-kit-vue'
 import { createPoint } from '@sgyx/cesium-kit-core'
+import { parseEarthManifest } from '@sgyx/cesium-kit-earth'
+import { parseFloodDataset } from '@sgyx/cesium-kit-flood'
 import { parseWeatherLayer } from '@sgyx/cesium-kit-weather'
 import { parseWindJson } from '@sgyx/cesium-kit-wind'
 
@@ -24,6 +33,32 @@ const weatherPreview = parseWeatherLayer({
       values: [0, 1, 2, 3]
     }
   ]
+})
+
+const floodPreview = parseFloodDataset({
+  rivers: [],
+  waterProjects: [],
+  stations: [],
+  forecastNodes: [],
+  warnings: [],
+  rehearsals: [],
+  knowledge: [],
+  plans: []
+})
+
+const earthPreview = parseEarthManifest({
+  range: { start: '2026-07-01T00:00:00Z', end: '2026-07-01T06:00:00Z' },
+  bounds: { west: -180, south: -80, east: 180, north: 80 },
+  modes: [
+    {
+      id: 'atmosphere',
+      label: '大气',
+      vectors: [],
+      overlays: [],
+      defaultOverlay: 'temperature'
+    }
+  ],
+  annotations: []
 })
 
 const { view, flyHome } = useCamera()
@@ -63,6 +98,8 @@ function toggleMode() {
     <div>pick: {{ last ? last.lonLatHeight.lon.toFixed(4) : '-' }}</div>
     <div>wind: {{ windPreview.width }}×{{ windPreview.height }}</div>
     <div>weather: {{ weatherPreview.kind }} · {{ weatherPreview.frames.length }}</div>
+    <div>flood: {{ floodPreview.forecastNodes.length }} · {{ floodPreview.rivers.length }}</div>
+    <div>earth: {{ earthPreview.modes.length }} · {{ earthPreview.modes[0]?.label }}</div>
     <button @click="flyHome()">home</button>
     <button @click="toggleMode">toggle-mode</button>
   </div>

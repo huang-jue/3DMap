@@ -1,0 +1,73 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "aurora-north",
+        "name": "北半球极光区"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -160,
+              62
+            ],
+            [
+              -80,
+              62
+            ],
+            [
+              -40,
+              72
+            ],
+            [
+              -120,
+              76
+            ],
+            [
+              -160,
+              62
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "aurora-south",
+        "name": "南半球极光区"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -180,
+              -65
+            ],
+            [
+              -60,
+              -65
+            ],
+            [
+              -20,
+              -75
+            ],
+            [
+              -160,
+              -78
+            ],
+            [
+              -180,
+              -65
+            ]
+          ]
+        ]
+      }
+    }
+  ]
+}

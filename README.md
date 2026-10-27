@@ -9,6 +9,8 @@
 | `@sgyx/cesium-kit-core`    | 纯 TS 内核：Viewer 生命周期、底图、地形、相机、场景模式、实体、坐标、事件、插件注册表 |
 | `@sgyx/cesium-kit-vue`     | Vue 3 适配层：`<CesiumViewer>` 组件与 composables                                     |
 | `@sgyx/cesium-kit-weather` | 可选天气预报插件：多图层栅格、时间轴联动与图例                                        |
+| `@sgyx/cesium-kit-flood`   | 可选水旱灾害防御四预插件：数据底板、预报、预警、预演、预案                            |
+| `@sgyx/cesium-kit-earth`   | 可选地球可视化插件：全球矢量场、标量叠加、注释、时间、投影与点查                      |
 | `@sgyx/cesium-kit-wind`    | 可选风场插件：GPU 粒子气象风场、风电场 Billboard/Label                                |
 | `@sgyx/cesium-kit-vite`    | Vite 插件：复制 Cesium 静态资源并注入 `CESIUM_BASE_URL`                               |
 | `apps/playground`          | 本地演示（含 Element Plus 面板，不参与发包）                                          |
@@ -25,6 +27,8 @@
 - GeoJSON / CZML / KML 数据源，3D Tiles 加载与样式
 - ClockService 时间轴（播放/暂停/倍速/范围/帧驱动）
 - 可选天气插件：多图层、时间范围、图例、城市点预报、气象预警与统一图层树
+- 可选水旱灾害防御四预插件：河流/工程/站点底板、预报曲线、风险预警、淹没预演与静态预案
+- 可选地球可视化插件：大气/海洋/化学/颗粒物/空间/生物模式、矢量粒子、标量叠加、图例与点查
 - 可选风场插件：气象风场粒子流、风电场 Billboard/Label 与点击选中
 - 绘制与量算：点/线/面/矩形/圆/高差，支持顶点编辑与实时量算
 - 绘制成果 GeoJSON 导入导出、版本化场景快照与手动本地保存恢复

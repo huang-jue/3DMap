@@ -1,0 +1,599 @@
+{
+  "name": "全球地球可视化样例",
+  "source": "Static synthetic demo",
+  "range": {
+    "start": "2026-07-01T00:00:00.000Z",
+    "end": "2026-07-01T18:00:00.000Z"
+  },
+  "bounds": {
+    "west": -180,
+    "south": -80,
+    "east": 180,
+    "north": 80
+  },
+  "modes": [
+    {
+      "id": "atmosphere",
+      "label": "大气",
+      "vectors": [
+        {
+          "id": "wind",
+          "label": "风",
+          "unit": "m/s",
+          "data": "/data/earth/atmosphere/wind.json",
+          "particleHeight": 50000,
+          "speedFactor": 1.5,
+          "colors": [
+            "#ffffff"
+          ]
+        }
+      ],
+      "overlays": [
+        {
+          "id": "temperature",
+          "label": "温度",
+          "unit": "°C",
+          "min": -40,
+          "max": 45,
+          "colors": [
+            "#1d4ed8",
+            "#38bdf8",
+            "#a7f3d0",
+            "#fde68a",
+            "#fb923c",
+            "#dc2626"
+          ],
+          "data": "/data/earth/atmosphere/temperature.json"
+        },
+        {
+          "id": "humidity",
+          "label": "相对湿度",
+          "unit": "%",
+          "min": 0,
+          "max": 100,
+          "colors": [
+            "#b45309",
+            "#84cc16",
+            "#22c55e",
+            "#06b6d4",
+            "#2563eb"
+          ],
+          "data": "/data/earth/atmosphere/humidity.json"
+        },
+        {
+          "id": "dewpoint",
+          "label": "露点温度",
+          "unit": "°C",
+          "min": -30,
+          "max": 30,
+          "colors": [
+            "#1d4ed8",
+            "#38bdf8",
+            "#a7f3d0",
+            "#fde68a",
+            "#fb923c",
+            "#dc2626"
+          ],
+          "data": "/data/earth/atmosphere/dewpoint.json"
+        },
+        {
+          "id": "wetbulb",
+          "label": "湿球温度",
+          "unit": "°C",
+          "min": -30,
+          "max": 30,
+          "colors": [
+            "#1d4ed8",
+            "#38bdf8",
+            "#a7f3d0",
+            "#fde68a",
+            "#fb923c",
+            "#dc2626"
+          ],
+          "data": "/data/earth/atmosphere/wetbulb.json"
+        },
+        {
+          "id": "precip3h",
+          "label": "3 小时降水",
+          "unit": "mm",
+          "min": 0,
+          "max": 50,
+          "colors": [
+            "#1d4ed8",
+            "#38bdf8",
+            "#a7f3d0",
+            "#fde68a",
+            "#fb923c",
+            "#dc2626"
+          ],
+          "data": "/data/earth/atmosphere/precip3h.json"
+        },
+        {
+          "id": "cape",
+          "label": "对流有效位能",
+          "unit": "J/kg",
+          "min": 0,
+          "max": 4000,
+          "colors": [
+            "#7c3aed",
+            "#2563eb",
+            "#06b6d4",
+            "#22c55e",
+            "#eab308",
+            "#f97316",
+            "#ef4444"
+          ],
+          "data": "/data/earth/atmosphere/cape.json"
+        },
+        {
+          "id": "precipitable-water",
+          "label": "水汽含量",
+          "unit": "mm",
+          "min": 0,
+          "max": 70,
+          "colors": [
+            "#b45309",
+            "#84cc16",
+            "#22c55e",
+            "#06b6d4",
+            "#2563eb"
+          ],
+          "data": "/data/earth/atmosphere/precipitable-water.json"
+        },
+        {
+          "id": "cloud-water",
+          "label": "云中总水量",
+          "unit": "g/m²",
+          "min": 0,
+          "max": 800,
+          "colors": [
+            "rgba(255,255,255,0)",
+            "rgba(255,255,255,0.35)",
+            "rgba(226,232,240,0.65)",
+            "rgba(148,163,184,0.9)"
+          ],
+          "data": "/data/earth/atmosphere/cloud-water.json"
+        },
+        {
+          "id": "mslp",
+          "label": "平均海平面气压",
+          "unit": "hPa",
+          "min": 950,
+          "max": 1050,
+          "colors": [
+            "#7c3aed",
+            "#2563eb",
+            "#06b6d4",
+            "#22c55e",
+            "#eab308",
+            "#f97316",
+            "#ef4444"
+          ],
+          "data": "/data/earth/atmosphere/mslp.json"
+        },
+        {
+          "id": "feels-like",
+          "label": "体感温度",
+          "unit": "°C",
+          "min": -40,
+          "max": 50,
+          "colors": [
+            "#1d4ed8",
+            "#38bdf8",
+            "#a7f3d0",
+            "#fde68a",
+            "#fb923c",
+            "#dc2626"
+          ],
+          "data": "/data/earth/atmosphere/feels-like.json"
+        },
+        {
+          "id": "uvi",
+          "label": "紫外线指数",
+          "unit": "UVI",
+          "min": 0,
+          "max": 12,
+          "colors": [
+            "#7c3aed",
+            "#2563eb",
+            "#06b6d4",
+            "#22c55e",
+            "#eab308",
+            "#f97316",
+            "#ef4444"
+          ],
+          "data": "/data/earth/atmosphere/uvi.json"
+        },
+        {
+          "id": "wpd",
+          "label": "风电功率密度",
+          "unit": "W/m²",
+          "min": 0,
+          "max": 1200,
+          "colors": [
+            "#b45309",
+            "#84cc16",
+            "#22c55e",
+            "#06b6d4",
+            "#2563eb"
+          ],
+          "data": "/data/earth/atmosphere/wpd.json"
+        }
+      ],
+      "defaultVector": "wind",
+      "defaultOverlay": "temperature",
+      "defaultAnnotations": [
+        "fires"
+      ]
+    },
+    {
+      "id": "ocean",
+      "label": "海洋",
+      "vectors": [
+        {
+          "id": "currents",
+          "label": "洋流",
+          "unit": "m/s",
+          "data": "/data/earth/ocean/currents.json",
+          "particleHeight": 1000,
+          "speedFactor": 1.2,
+          "colors": [
+            "#38bdf8"
+          ]
+        },
+        {
+          "id": "waves",
+          "label": "波浪",
+          "unit": "m",
+          "data": "/data/earth/ocean/waves.json",
+          "particleHeight": 3000,
+          "speedFactor": 1.2,
+          "colors": [
+            "#a5f3fc"
+          ]
+        }
+      ],
+      "overlays": [
+        {
+          "id": "wave-period",
+          "label": "波峰周期",
+          "unit": "s",
+          "min": 0,
+          "max": 20,
+          "colors": [
+            "#b45309",
+            "#84cc16",
+            "#22c55e",
+            "#06b6d4",
+            "#2563eb"
+          ],
+          "data": "/data/earth/ocean/wave-period.json"
+        },
+        {
+          "id": "wave-height",
+          "label": "有效波高",
+          "unit": "m",
+          "min": 0,
+          "max": 10,
+          "colors": [
+            "#1d4ed8",
+            "#38bdf8",
+            "#a7f3d0",
+            "#fde68a",
+            "#fb923c",
+            "#dc2626"
+          ],
+          "data": "/data/earth/ocean/wave-height.json"
+        },
+        {
+          "id": "sst",
+          "label": "海面温度",
+          "unit": "°C",
+          "min": -2,
+          "max": 32,
+          "colors": [
+            "#1d4ed8",
+            "#38bdf8",
+            "#a7f3d0",
+            "#fde68a",
+            "#fb923c",
+            "#dc2626"
+          ],
+          "data": "/data/earth/ocean/sst.json"
+        },
+        {
+          "id": "sst-anomaly",
+          "label": "海温异常",
+          "unit": "°C",
+          "min": -5,
+          "max": 5,
+          "colors": [
+            "#7c3aed",
+            "#2563eb",
+            "#06b6d4",
+            "#22c55e",
+            "#eab308",
+            "#f97316",
+            "#ef4444"
+          ],
+          "data": "/data/earth/ocean/sst-anomaly.json"
+        },
+        {
+          "id": "coral-bleaching",
+          "label": "珊瑚白化警报",
+          "unit": "%",
+          "min": 0,
+          "max": 100,
+          "colors": [
+            "#22c55e",
+            "#facc15",
+            "#fb923c",
+            "#ef4444"
+          ],
+          "data": "/data/earth/ocean/coral-bleaching.json"
+        }
+      ],
+      "defaultVector": "currents",
+      "defaultOverlay": "sst",
+      "defaultAnnotations": [
+        "coral"
+      ]
+    },
+    {
+      "id": "chemistry",
+      "label": "化学",
+      "vectors": [],
+      "overlays": [
+        {
+          "id": "co",
+          "label": "一氧化碳",
+          "unit": "ppb",
+          "min": 40,
+          "max": 400,
+          "colors": [
+            "#7c3aed",
+            "#2563eb",
+            "#06b6d4",
+            "#22c55e",
+            "#eab308",
+            "#f97316",
+            "#ef4444"
+          ],
+          "data": "/data/earth/chemistry/co.json"
+        },
+        {
+          "id": "co2",
+          "label": "二氧化碳",
+          "unit": "ppm",
+          "min": 380,
+          "max": 430,
+          "colors": [
+            "#1d4ed8",
+            "#38bdf8",
+            "#a7f3d0",
+            "#fde68a",
+            "#fb923c",
+            "#dc2626"
+          ],
+          "data": "/data/earth/chemistry/co2.json"
+        },
+        {
+          "id": "so2",
+          "label": "二氧化硫",
+          "unit": "µg/m³",
+          "min": 0,
+          "max": 200,
+          "colors": [
+            "#7c3aed",
+            "#2563eb",
+            "#06b6d4",
+            "#22c55e",
+            "#eab308",
+            "#f97316",
+            "#ef4444"
+          ],
+          "data": "/data/earth/chemistry/so2.json"
+        },
+        {
+          "id": "no2",
+          "label": "二氧化氮",
+          "unit": "µg/m³",
+          "min": 0,
+          "max": 200,
+          "colors": [
+            "#7c3aed",
+            "#2563eb",
+            "#06b6d4",
+            "#22c55e",
+            "#eab308",
+            "#f97316",
+            "#ef4444"
+          ],
+          "data": "/data/earth/chemistry/no2.json"
+        }
+      ],
+      "defaultOverlay": "co2"
+    },
+    {
+      "id": "particulate",
+      "label": "颗粒物",
+      "vectors": [],
+      "overlays": [
+        {
+          "id": "dust",
+          "label": "沙尘消光",
+          "unit": "AOD",
+          "min": 0,
+          "max": 3,
+          "colors": [
+            "#fef3c7",
+            "#fbbf24",
+            "#f97316",
+            "#dc2626"
+          ],
+          "data": "/data/earth/particulate/dust.json"
+        },
+        {
+          "id": "pm1",
+          "label": "PM1",
+          "unit": "µg/m³",
+          "min": 0,
+          "max": 200,
+          "colors": [
+            "#7c3aed",
+            "#2563eb",
+            "#06b6d4",
+            "#22c55e",
+            "#eab308",
+            "#f97316",
+            "#ef4444"
+          ],
+          "data": "/data/earth/particulate/pm1.json"
+        },
+        {
+          "id": "pm25",
+          "label": "PM2.5",
+          "unit": "µg/m³",
+          "min": 0,
+          "max": 300,
+          "colors": [
+            "#7c3aed",
+            "#2563eb",
+            "#06b6d4",
+            "#22c55e",
+            "#eab308",
+            "#f97316",
+            "#ef4444"
+          ],
+          "data": "/data/earth/particulate/pm25.json"
+        },
+        {
+          "id": "pm10",
+          "label": "PM10",
+          "unit": "µg/m³",
+          "min": 0,
+          "max": 400,
+          "colors": [
+            "#7c3aed",
+            "#2563eb",
+            "#06b6d4",
+            "#22c55e",
+            "#eab308",
+            "#f97316",
+            "#ef4444"
+          ],
+          "data": "/data/earth/particulate/pm10.json"
+        },
+        {
+          "id": "organic-aerosol",
+          "label": "有机气溶胶",
+          "unit": "AOD",
+          "min": 0,
+          "max": 2,
+          "colors": [
+            "#7c3aed",
+            "#2563eb",
+            "#06b6d4",
+            "#22c55e",
+            "#eab308",
+            "#f97316",
+            "#ef4444"
+          ],
+          "data": "/data/earth/particulate/organic-aerosol.json"
+        },
+        {
+          "id": "sulfate-extinction",
+          "label": "硫酸盐消光",
+          "unit": "AOD",
+          "min": 0,
+          "max": 2,
+          "colors": [
+            "#7c3aed",
+            "#2563eb",
+            "#06b6d4",
+            "#22c55e",
+            "#eab308",
+            "#f97316",
+            "#ef4444"
+          ],
+          "data": "/data/earth/particulate/sulfate-extinction.json"
+        }
+      ],
+      "defaultOverlay": "pm25"
+    },
+    {
+      "id": "space",
+      "label": "空间天气",
+      "vectors": [],
+      "overlays": [
+        {
+          "id": "aurora",
+          "label": "极光概率",
+          "unit": "%",
+          "min": 0,
+          "max": 100,
+          "colors": [
+            "rgba(255,255,255,0)",
+            "#22d3ee",
+            "#a855f7"
+          ],
+          "data": "/data/earth/space/aurora.json"
+        }
+      ],
+      "defaultOverlay": "aurora",
+      "defaultAnnotations": [
+        "aurora"
+      ]
+    },
+    {
+      "id": "biology",
+      "label": "生物",
+      "vectors": [],
+      "overlays": [
+        {
+          "id": "coral",
+          "label": "珊瑚白化区域",
+          "unit": "%",
+          "min": 0,
+          "max": 100,
+          "colors": [
+            "#22c55e",
+            "#facc15",
+            "#fb923c",
+            "#ef4444"
+          ],
+          "data": "/data/earth/biology/coral.json"
+        }
+      ],
+      "defaultOverlay": "coral",
+      "defaultAnnotations": [
+        "coral"
+      ]
+    }
+  ],
+  "annotations": [
+    {
+      "id": "fires",
+      "label": "火点",
+      "type": "points",
+      "data": "/data/earth/annotations/fires.geojson"
+    },
+    {
+      "id": "aurora",
+      "label": "极光",
+      "type": "polygons",
+      "data": "/data/earth/annotations/aurora.geojson"
+    },
+    {
+      "id": "coral",
+      "label": "珊瑚白化",
+      "type": "polygons",
+      "data": "/data/earth/annotations/coral.geojson"
+    }
+  ],
+  "weather": {
+    "points": "/data/weather/cities.json",
+    "warnings": "/data/weather/warnings.geojson",
+    "windFarm": "/data/weather/turbines.json"
+  }
+}
