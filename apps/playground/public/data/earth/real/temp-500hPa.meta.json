@@ -1,0 +1,1 @@
+{"format":"earth-scalar-f32-v1","legend":{"min":-80,"max":55,"unit":"°C","colors":["#25042a","#290a82","#c02595","#46d7d7","#1554bb","#18840e","#f7fb3b","#eba715","#e64727","#581b43"]},"frames":[{"time":"2026-10-27T07:00:00.000Z","width":721,"height":361,"bounds":{"west":-180,"east":180,"south":-90,"north":90},"noData":-9999,"binary":"temp-500hPa-0.f32.gz"}]}

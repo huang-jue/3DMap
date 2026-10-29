@@ -7,6 +7,9 @@ import {
   type WeatherWarningFeature
 } from '@sgyx/cesium-kit-weather'
 import { createWindFarmFeature, type WindFarmFeature } from '@sgyx/cesium-kit-wind'
+import { samplePointSeries } from './data/pointSeries'
+import { validateEarthState } from './data/validateEarthState'
+import type { DataRequestOptions } from '@sgyx/cesium-kit-core'
 import { loadEarthManifest } from './data/loadEarthData'
 import { loadEarthCoastline } from './layers/EarthCoastlineLayer'
 import {
@@ -24,8 +27,11 @@ import {
 } from './features/createEarthVectorFeature'
 import {
   DEFAULT_EARTH_SETTINGS,
+  type EarthPluginState,
+  type EarthPointSeries,
   type EarthAnnotationItem,
   type EarthLegend,
+  type EarthLevelConfig,
   type EarthManifest,
   type EarthMode,
   type EarthModeConfig,
@@ -39,7 +45,9 @@ import {
 export interface EarthPluginConfig {
   data: EarthManifest | string
   name?: string
+  dataRef?: string
   mode?: EarthMode
+  level?: string
   vector?: string | null
   overlay?: string | null
   annotations?: string[]
@@ -55,8 +63,10 @@ export interface EarthPluginConfig {
 }
 
 export interface EarthPlugin extends CesiumFeature<EarthPluginConfig> {
+  install(ctx: FeatureContext, options?: EarthPluginConfig): Promise<void>
   readonly manifest: EarthManifest | null
   readonly mode: EarthModeConfig | null
+  readonly level: EarthLevelConfig | null
   readonly overlay: EarthOverlayConfig | null
   readonly vector: EarthVectorConfig | null
   readonly settings: EarthSettings
@@ -66,6 +76,7 @@ export interface EarthPlugin extends CesiumFeature<EarthPluginConfig> {
   readonly weatherWarnings: WeatherWarningFeature | null
   readonly windFarm: WindFarmFeature | null
   setMode(mode: EarthMode): Promise<void>
+  setLevel(id: string): Promise<void>
   setOverlay(id: string | null): Promise<void>
   setVector(id: string | null): Promise<void>
   setAnnotation(id: string, visible: boolean): void | Promise<void>
@@ -79,10 +90,15 @@ export interface EarthPlugin extends CesiumFeature<EarthPluginConfig> {
   setSettings(settings: Partial<EarthSettings>): void
   probe(lon: number, lat: number): EarthProbeResult
   getLegend(): EarthLegend | null
+  getState(): EarthPluginState
+  restoreState(state: EarthPluginState): Promise<void>
+  getPointSeries(lon: number, lat: number, options?: DataRequestOptions): Promise<EarthPointSeries>
+  readonly sampledTime: Date | null
+  readonly frameTimes: Date[]
 }
 
 function overlayById(
-  mode: EarthModeConfig,
+  mode: EarthLevelConfig,
   id: string | null | undefined
 ): EarthOverlayConfig | null {
   if (!id) return null
@@ -90,7 +106,7 @@ function overlayById(
 }
 
 function vectorById(
-  mode: EarthModeConfig,
+  mode: EarthLevelConfig,
   id: string | null | undefined
 ): EarthVectorConfig | null {
   if (!id) return null
@@ -129,6 +145,7 @@ function annotationItemsNear(
 export function createEarthPlugin(config: EarthPluginConfig): EarthPlugin {
   let manifest: EarthManifest | null = null
   let mode: EarthModeConfig | null = null
+  let level: EarthLevelConfig | null = null
   let overlayConfig: EarthOverlayConfig | null = null
   let vectorConfig: EarthVectorConfig | null = null
   let scalarFeature: EarthScalarFeature | null = null
@@ -148,12 +165,49 @@ export function createEarthPlugin(config: EarthPluginConfig): EarthPlugin {
   let vectorRequest = 0
   let activeConfig: EarthPluginConfig = config
   let disposed = false
+  let controller = new AbortController()
+  let generation = 0
+  let selectionRequest = 0
+  let projection: EarthProjection = '3D'
+  let pendingScalar: EarthScalarFeature | null = null
+  let pendingVector: EarthVectorFeature | null = null
+  const pendingBusiness = new Set<{ dispose?(): void }>()
+  const pendingAnnotations = new Map<string, EarthAnnotationFeature>()
+  const tasks = new Map<string, Promise<void>>()
+  const weatherVisibility = { points: false, warnings: false, windFarm: false }
+  const once = (key: string, action: () => Promise<void>): Promise<void> => {
+    const existing = tasks.get(key)
+    if (existing) return existing
+    const pending = action().finally(() => {
+      if (tasks.get(key) === pending) tasks.delete(key)
+    })
+    tasks.set(key, pending)
+    return pending
+  }
   const errors: Partial<Record<string, unknown>> = {}
   const annotationVisibility = new Map<string, boolean>()
 
   const report = (key: string, error: unknown): void => {
+    if (disposed) return
     errors[key] = error
     activeConfig.onError?.(key, error)
+  }
+
+  const syncFieldTime = (overlay: EarthOverlayConfig | null): void => {
+    if (!ctxRef || !manifest || activeConfig.syncClockRange === false) return
+    const times = overlay?.metadata?.times
+      .map((t) => new Date(t))
+      .filter((t) => Number.isFinite(t.getTime()))
+    const start = times?.length
+      ? new Date(Math.min(...times.map((t) => t.getTime())))
+      : manifest.range.start
+    const end = times?.length
+      ? new Date(Math.max(...times.map((t) => t.getTime())))
+      : manifest.range.end
+    const now = ctxRef.clock.state.currentTime.getTime()
+    ctxRef.clock.setRange(start, end)
+    if (end.getTime() === start.getTime()) ctxRef.clock.pause()
+    ctxRef.clock.seek(new Date(Math.min(end.getTime(), Math.max(start.getTime(), now))))
   }
 
   const applyGrid = (): void => {
@@ -179,11 +233,15 @@ export function createEarthPlugin(config: EarthPluginConfig): EarthPlugin {
   }
 
   const disposeScalar = (): void => {
+    pendingScalar?.dispose?.()
+    pendingScalar = null
     scalarFeature?.dispose?.()
     scalarFeature = null
   }
 
   const disposeVector = (): void => {
+    pendingVector?.dispose?.()
+    pendingVector = null
     vectorFeature?.dispose?.()
     vectorFeature = null
   }
@@ -193,7 +251,11 @@ export function createEarthPlugin(config: EarthPluginConfig): EarthPlugin {
     if (!ctxRef) return
     disposeScalar()
     overlayConfig = overlay
-    if (!overlay) return
+    if (!overlay) {
+      delete errors.scalar
+      syncFieldTime(null)
+      return
+    }
     const feature = createEarthScalarFeature({
       overlay,
       followClock,
@@ -201,6 +263,7 @@ export function createEarthPlugin(config: EarthPluginConfig): EarthPlugin {
       settings,
       name: `earth-scalar-${overlay.id}`
     })
+    pendingScalar = feature
     try {
       await feature.install(ctxRef, {
         overlay,
@@ -212,23 +275,32 @@ export function createEarthPlugin(config: EarthPluginConfig): EarthPlugin {
         feature.dispose?.()
         return
       }
+      pendingScalar = null
       scalarFeature = feature
+      syncFieldTime(overlay)
       // A newly installed scalar must stay below the transparent coastline/grid.
       if (coastLayer) ctxRef.viewer.imageryLayers.raiseToTop(coastLayer)
       if (gridLayer) ctxRef.viewer.imageryLayers.raiseToTop(gridLayer)
       delete errors.scalar
     } catch (error) {
       feature.dispose?.()
-      report('scalar', error)
+      if (request === scalarRequest) report('scalar', error)
     }
   }
 
   const installVector = async (vector: EarthVectorConfig | null): Promise<void> => {
     const request = ++vectorRequest
+    if (vectorFeature && vector && vectorConfig?.data === vector.data) {
+      vectorConfig = vector
+      return
+    }
     if (!ctxRef) return
     disposeVector()
     vectorConfig = vector
-    if (!vector) return
+    if (!vector) {
+      delete errors.vector
+      return
+    }
     const feature = createEarthVectorFeature({
       vector,
       followClock,
@@ -236,6 +308,7 @@ export function createEarthPlugin(config: EarthPluginConfig): EarthPlugin {
       settings,
       name: `earth-vector-${vector.id}`
     })
+    pendingVector = feature
     try {
       await feature.install(ctxRef, {
         vector,
@@ -247,11 +320,12 @@ export function createEarthPlugin(config: EarthPluginConfig): EarthPlugin {
         feature.dispose?.()
         return
       }
+      pendingVector = null
       vectorFeature = feature
       delete errors.vector
     } catch (error) {
       feature.dispose?.()
-      report('vector', error)
+      if (request === vectorRequest) report('vector', error)
     }
   }
 
@@ -262,7 +336,7 @@ export function createEarthPlugin(config: EarthPluginConfig): EarthPlugin {
     if (!manifest || !ctxRef) return
     const existing = annotationFeatures.find((feature) => feature.annotation.id === id)
     if (existing) {
-      existing.setVisible(visible)
+      existing.setVisible(annotationVisibility.get(id) ?? false)
       return
     }
     const annotation = manifest.annotations.find((item) => item.id === id)
@@ -272,23 +346,29 @@ export function createEarthPlugin(config: EarthPluginConfig): EarthPlugin {
       visible,
       name: `earth-annotation-${annotation.id}`
     })
+    const current = generation
+    pendingAnnotations.set(id, feature)
     try {
       await feature.install(ctxRef, { annotation, visible })
-      if (disposed) {
+      if (disposed || current !== generation) {
         feature.dispose?.()
         return
       }
+      pendingAnnotations.delete(id)
+      feature.setVisible(annotationVisibility.get(id) ?? false)
       annotationFeatures.push(feature)
       delete errors[`annotation:${annotation.id}`]
     } catch (error) {
       feature.dispose?.()
-      report(`annotation:${annotation.id}`, error)
+      if (current === generation) report(`annotation:${annotation.id}`, error)
+    } finally {
+      if (pendingAnnotations.get(id) === feature) pendingAnnotations.delete(id)
     }
   }
 
   const ensureDefaultAnnotations = async (): Promise<void> => {
-    for (const id of mode?.defaultAnnotations ?? []) {
-      await ensureAnnotation(id, true)
+    for (const [id, visible] of annotationVisibility) {
+      if (visible) await once(`annotation:${id}`, () => ensureAnnotation(id, false))
     }
   }
 
@@ -299,23 +379,30 @@ export function createEarthPlugin(config: EarthPluginConfig): EarthPlugin {
       points: manifest.weather.points,
       time: manifest.weather.sampleTime,
       name: 'earth-weather-points',
-      visible: true,
+      visible: false,
       showPopup: true
     })
+    const current = generation
+    pendingBusiness.add(points)
     try {
       await points.install(ctxRef, {
         points: manifest.weather.points,
         time: manifest.weather.sampleTime,
         name: 'earth-weather-points',
-        visible: true,
+        visible: false,
         showPopup: true
       })
-      if (disposed) points.dispose?.()
-      else weatherPoints = points
-      delete errors['weather-points']
+      if (disposed || current !== generation) points.dispose?.()
+      else {
+        weatherPoints = points
+        points.setVisible(weatherVisibility.points)
+      }
+      pendingBusiness.delete(points)
+      if (current === generation) delete errors['weather-points']
     } catch (error) {
       points.dispose?.()
-      report('weather-points', error)
+      pendingBusiness.delete(points)
+      if (current === generation) report('weather-points', error)
       throw error
     }
   }
@@ -327,23 +414,30 @@ export function createEarthPlugin(config: EarthPluginConfig): EarthPlugin {
       warnings: manifest.weather.warnings,
       time: manifest.weather.sampleTime,
       name: 'earth-weather-warnings',
-      visible: true,
+      visible: false,
       showPopup: true
     })
+    const current = generation
+    pendingBusiness.add(warnings)
     try {
       await warnings.install(ctxRef, {
         warnings: manifest.weather.warnings,
         time: manifest.weather.sampleTime,
         name: 'earth-weather-warnings',
-        visible: true,
+        visible: false,
         showPopup: true
       })
-      if (disposed) warnings.dispose?.()
-      else weatherWarnings = warnings
-      delete errors['weather-warnings']
+      if (disposed || current !== generation) warnings.dispose?.()
+      else {
+        weatherWarnings = warnings
+        warnings.setVisible(weatherVisibility.warnings)
+      }
+      pendingBusiness.delete(warnings)
+      if (current === generation) delete errors['weather-warnings']
     } catch (error) {
       warnings.dispose?.()
-      report('weather-warnings', error)
+      pendingBusiness.delete(warnings)
+      if (current === generation) report('weather-warnings', error)
       throw error
     }
   }
@@ -355,17 +449,24 @@ export function createEarthPlugin(config: EarthPluginConfig): EarthPlugin {
       turbines: manifest.weather.windFarm,
       name: 'earth-wind-farm'
     })
+    const current = generation
+    pendingBusiness.add(farm)
     try {
       await farm.install(ctxRef, {
         turbines: manifest.weather.windFarm,
         name: 'earth-wind-farm'
       })
-      if (disposed) farm.dispose?.()
-      else windFarm = farm
-      delete errors['wind-farm']
+      if (disposed || current !== generation) farm.dispose?.()
+      else {
+        windFarm = farm
+        farm.setVisible(weatherVisibility.windFarm)
+      }
+      pendingBusiness.delete(farm)
+      if (current === generation) delete errors['wind-farm']
     } catch (error) {
       farm.dispose?.()
-      report('wind-farm', error)
+      pendingBusiness.delete(farm)
+      if (current === generation) report('wind-farm', error)
       throw error
     }
   }
@@ -402,18 +503,21 @@ export function createEarthPlugin(config: EarthPluginConfig): EarthPlugin {
   }
 
   const install = async (ctx: FeatureContext, options?: EarthPluginConfig): Promise<void> => {
+    const current = ++generation
     disposed = false
+    controller = new AbortController()
     ctxRef = ctx
     const merged = { ...config, ...options }
     activeConfig = merged
     followClock = merged.followClock ?? true
     visible = merged.visible ?? true
     settings = { ...DEFAULT_EARTH_SETTINGS, ...(merged.settings ?? {}) }
-    manifest = await loadEarthManifest(merged.data)
-    if (disposed) return
+    manifest = await loadEarthManifest(merged.data, { signal: controller.signal })
+    if (disposed || current !== generation) return
     const modeId = merged.mode ?? manifest.modes[0]?.id ?? 'atmosphere'
     mode = manifest.modes.find((item) => item.id === modeId) ?? manifest.modes[0] ?? null
     if (!mode) throw new Error('@sgyx/cesium-kit-earth: 没有可用模式')
+    level = mode.levels?.find((item) => item.id === (merged.level ?? mode?.defaultLevel)) ?? mode
 
     const defaults = new Set(mode.defaultAnnotations ?? [])
     manifest.annotations.forEach((annotation) => {
@@ -429,12 +533,19 @@ export function createEarthPlugin(config: EarthPluginConfig): EarthPlugin {
     }
 
     await installScalar(
-      overlayById(mode, merged.overlay ?? mode.defaultOverlay) ?? mode.overlays[0] ?? null
+      merged.overlay === null
+        ? null
+        : (overlayById(level, merged.overlay ?? level.defaultOverlay) ?? level.overlays[0] ?? null)
     )
+    if (disposed || current !== generation) return
     await installVector(
-      vectorById(mode, merged.vector ?? mode.defaultVector) ?? mode.vectors[0] ?? null
+      merged.vector === null
+        ? null
+        : (vectorById(level, merged.vector ?? level.defaultVector) ?? level.vectors[0] ?? null)
     )
+    if (disposed || current !== generation) return
     await ensureDefaultAnnotations()
+    if (disposed || current !== generation) return
 
     probeFeature = createEarthProbeFeature({
       sample: probe,
@@ -446,8 +557,8 @@ export function createEarthPlugin(config: EarthPluginConfig): EarthPlugin {
 
     if (manifest.metadata?.coastline) {
       try {
-        const provider = await loadEarthCoastline(manifest.metadata.coastline)
-        if (disposed) return
+        const provider = await loadEarthCoastline(manifest.metadata.coastline, { signal: controller.signal })
+        if (disposed || current !== generation) return
         coastLayer = ctx.viewer.imageryLayers.addImageryProvider(provider)
       } catch (error) {
         report('coastline', error)
@@ -455,8 +566,12 @@ export function createEarthPlugin(config: EarthPluginConfig): EarthPlugin {
     }
 
     if (merged.syncClockRange !== false) {
-      ctx.clock.setRange(manifest.range.start, manifest.range.end)
-      ctx.clock.seek(manifest.range.start)
+      syncFieldTime(overlayConfig)
+      ctx.clock.seek(
+        overlayConfig?.metadata?.times[0]
+          ? new Date(overlayConfig.metadata.times[0])
+          : manifest.range.start
+      )
     }
     ctx.log.info(`地球插件已启用：${manifest.name ?? '未命名'} / ${mode.label}`)
   }
@@ -465,7 +580,13 @@ export function createEarthPlugin(config: EarthPluginConfig): EarthPlugin {
     if (!manifest) return
     const nextMode = manifest.modes.find((item) => item.id === next)
     if (!nextMode) return
+    const request = ++selectionRequest
+    scalarRequest++
+    vectorRequest++
+    disposeScalar()
+    disposeVector()
     mode = nextMode
+    level = mode.levels?.find((item) => item.id === mode?.defaultLevel) ?? mode
     const defaults = new Set(nextMode.defaultAnnotations ?? [])
     annotationVisibility.forEach((_, id) => {
       annotationVisibility.set(id, defaults.has(id))
@@ -474,13 +595,11 @@ export function createEarthPlugin(config: EarthPluginConfig): EarthPlugin {
       feature.setVisible(annotationVisibility.get(feature.annotation.id) ?? false)
     })
     await ensureDefaultAnnotations()
-    if (mode !== nextMode || disposed) return
-    await installScalar(
-      overlayById(nextMode, nextMode.defaultOverlay) ?? nextMode.overlays[0] ?? null
-    )
-    if (mode !== nextMode || disposed) return
-    await installVector(vectorById(nextMode, nextMode.defaultVector) ?? nextMode.vectors[0] ?? null)
-    activeConfig.onModeChange?.(nextMode)
+    if (request !== selectionRequest || disposed) return
+    await installScalar(overlayById(level, level.defaultOverlay) ?? level.overlays[0] ?? null)
+    if (request !== selectionRequest || disposed) return
+    await installVector(vectorById(level, level.defaultVector) ?? level.vectors[0] ?? null)
+    if (request === selectionRequest && !disposed) activeConfig.onModeChange?.(nextMode)
   }
 
   const plugin: EarthPlugin = {
@@ -490,6 +609,9 @@ export function createEarthPlugin(config: EarthPluginConfig): EarthPlugin {
     },
     get mode() {
       return mode
+    },
+    get level() {
+      return level
     },
     get overlay() {
       return overlayConfig
@@ -520,46 +642,70 @@ export function createEarthPlugin(config: EarthPluginConfig): EarthPlugin {
       await setMode(next)
     },
     async setOverlay(id) {
-      if (!mode) return
-      await installScalar(overlayById(mode, id))
+      selectionRequest++
+      if (!level) return
+      await installScalar(overlayById(level, id))
     },
     async setVector(id) {
-      if (!mode) return
-      await installVector(vectorById(mode, id))
+      selectionRequest++
+      if (!level) return
+      await installVector(vectorById(level, id))
+    },
+    async setLevel(id) {
+      const next = mode?.levels?.find((item) => item.id === id)
+      if (!next) return
+      const request = ++selectionRequest
+      vectorRequest++
+      disposeVector()
+      const previous = overlayConfig?.label
+      level = next
+      await installScalar(
+        next.overlays.find((item) => item.label === previous) ??
+          overlayById(next, next.defaultOverlay) ??
+          next.overlays[0] ??
+          null
+      )
+      if (request !== selectionRequest || disposed) return
+      await installVector(vectorById(next, next.defaultVector) ?? next.vectors[0] ?? null)
     },
     async setAnnotation(id, value) {
       annotationVisibility.set(id, value)
-      if (value) await ensureAnnotation(id, true)
+      if (value && !disposed) await once(`annotation:${id}`, () => ensureAnnotation(id, false))
       else {
         annotationFeatures.find((feature) => feature.annotation.id === id)?.setVisible(false)
       }
     },
     async setWeatherPointsVisible(value) {
-      if (value) await ensureWeatherPoints()
-      weatherPoints?.setVisible(value)
+      weatherVisibility.points = value
+      if (value) await once('points', ensureWeatherPoints)
+      weatherPoints?.setVisible(weatherVisibility.points)
     },
     async setWeatherWarningsVisible(value) {
-      if (value) await ensureWeatherWarnings()
-      weatherWarnings?.setVisible(value)
+      weatherVisibility.warnings = value
+      if (value) await once('warnings', ensureWeatherWarnings)
+      weatherWarnings?.setVisible(weatherVisibility.warnings)
     },
     async setWindFarmVisible(value) {
-      if (value) await ensureWindFarm()
-      windFarm?.setVisible(value)
+      weatherVisibility.windFarm = value
+      if (value) await once('windFarm', ensureWindFarm)
+      windFarm?.setVisible(weatherVisibility.windFarm)
     },
     setProjection(value) {
+      projection = value
       if (!ctxRef || ctxRef.viewer.isDestroyed()) return
       const scene = ctxRef.viewer.scene
       if (value === 'ORTHOGRAPHIC') {
         scene.morphTo3D(0)
         scene.camera.switchToOrthographicFrustum()
         const frustum = scene.camera.frustum as Cesium.OrthographicFrustum
-        frustum.width = scene.globe.ellipsoid.maximumRadius * 2.4 *
+        frustum.width =
+          scene.globe.ellipsoid.maximumRadius *
+          2.4 *
           Math.max(1, scene.canvas.clientWidth / scene.canvas.clientHeight)
         scene.requestRender()
         return
       }
-      if (scene.mode === Cesium.SceneMode.SCENE3D)
-        scene.camera.switchToPerspectiveFrustum()
+      if (scene.mode === Cesium.SceneMode.SCENE3D) scene.camera.switchToPerspectiveFrustum()
       if (value === '2D') {
         ctxRef.viewer.scene.morphTo2D(1)
       } else if (value === 'COLUMBUS_VIEW') {
@@ -586,11 +732,85 @@ export function createEarthPlugin(config: EarthPluginConfig): EarthPlugin {
       applyGrid()
     },
     probe,
+    get sampledTime() {
+      return scalarFeature?.getCurrentFrame()?.time ?? null
+    },
+    get frameTimes() {
+      return scalarFeature?.times ?? []
+    },
+    getPointSeries(lon, lat, options) {
+      return samplePointSeries(
+        lon,
+        lat,
+        level?.id ?? '',
+        overlayConfig,
+        vectorConfig,
+        settings.interpolation,
+        options
+      )
+    },
+    getState() {
+      const dataRef =
+        activeConfig.dataRef ??
+        (typeof activeConfig.data === 'string' && !activeConfig.data.trim().startsWith('{')
+          ? activeConfig.data
+          : '')
+      if (!dataRef || !mode || !level) throw new Error('保存地球状态需要已安装插件和稳定 dataRef')
+      return {
+        version: 1,
+        dataRef,
+        mode: mode.id,
+        level: level.id,
+        overlay: overlayConfig?.id ?? null,
+        vector: vectorConfig?.id ?? null,
+        annotations: [...annotationVisibility].filter(([, value]) => value).map(([id]) => id),
+        weather: { ...weatherVisibility },
+        projection,
+        settings: { ...settings },
+        followClock
+      }
+    },
+    async restoreState(state) {
+      validateEarthState(state)
+      if (!state || state.version !== 1 || !manifest || state.dataRef !== plugin.getState().dataRef)
+        throw new Error('地球数据集未安装或不匹配')
+      if (!manifest.modes.some((item) => item.id === state.mode)) throw new Error('未知地球模式')
+      const targetMode = manifest.modes.find((item) => item.id === state.mode)!
+      if (targetMode.levels && !targetMode.levels.some((item) => item.id === state.level))
+        throw new Error('未知高度层')
+      const targetLevel = targetMode.levels?.find((item) => item.id === state.level) ?? targetMode
+      if (state.overlay && !targetLevel.overlays.some((item) => item.id === state.overlay))
+        throw new Error('未知标量变量')
+      if (state.vector && !targetLevel.vectors.some((item) => item.id === state.vector))
+        throw new Error('未知矢量变量')
+      if (state.annotations.some((id) => !manifest!.annotations.some((item) => item.id === id)))
+        throw new Error('未知注释')
+      await plugin.setMode(state.mode)
+      await plugin.setLevel(state.level)
+      await plugin.setOverlay(state.overlay)
+      await plugin.setVector(state.vector)
+      for (const annotation of manifest.annotations)
+        await plugin.setAnnotation(annotation.id, state.annotations.includes(annotation.id))
+      await plugin.setWeatherPointsVisible(state.weather.points)
+      await plugin.setWeatherWarningsVisible(state.weather.warnings)
+      await plugin.setWindFarmVisible(state.weather.windFarm)
+      plugin.setSettings(state.settings)
+      plugin.setFollowClock(state.followClock)
+      plugin.setProjection(state.projection)
+    },
     getLegend() {
       return scalarFeature?.getLegend() ?? null
     },
     dispose() {
       disposed = true
+      controller.abort()
+      generation++
+      selectionRequest++
+      pendingAnnotations.forEach((feature) => feature.dispose?.())
+      pendingAnnotations.clear()
+      pendingBusiness.forEach((feature) => feature.dispose?.())
+      pendingBusiness.clear()
+      tasks.clear()
       scalarRequest++
       vectorRequest++
       probeFeature?.dispose?.()
@@ -613,6 +833,7 @@ export function createEarthPlugin(config: EarthPluginConfig): EarthPlugin {
         ctxRef.viewer.imageryLayers.remove(coastLayer, true)
       coastLayer = null
       mode = null
+      level = null
       overlayConfig = null
       vectorConfig = null
       manifest = null

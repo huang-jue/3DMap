@@ -37,6 +37,7 @@ export interface SnapshotIssue {
 }
 export interface SceneSnapshot {
   version: 1
+  extensions?: Record<string, unknown>
   camera: CameraView
   mode: SceneModeName
   terrain: { source?: 'ellipsoid' | 'world'; resourceRef?: string }
@@ -51,6 +52,12 @@ export interface SceneSnapshot {
     loop: boolean
     running: boolean
   }
+}
+export interface SnapshotExtensionAdapter {
+  capture(): unknown
+  restore(state: unknown): void | Promise<void>
+  /** Runs after core view/clock restoration, e.g. to restore a custom frustum. */
+  afterRestore?(state: unknown): void | Promise<void>
 }
 export interface SnapshotCaptureResult {
   snapshot: SceneSnapshot

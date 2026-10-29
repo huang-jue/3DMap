@@ -1,0 +1,1 @@
+{"format":"earth-scalar-f32-v1","legend":{"min":0,"max":18,"unit":"UV","colors":["#181922","#3ea72d","#ffee00","#f18b00","#e53210","#b567a4","#e7e1ff"]},"frames":[{"time":"2026-10-27T07:00:00.000Z","width":1441,"height":721,"bounds":{"west":-180,"east":180,"south":-90,"north":90},"noData":-9999,"binary":"uvi-0.f32.gz"}]}

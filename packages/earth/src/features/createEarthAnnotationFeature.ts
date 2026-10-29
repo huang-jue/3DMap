@@ -27,16 +27,18 @@ export function createEarthAnnotationFeature(
   let nodeId: string | undefined
   let visible = true
   let disposed = false
+  let controller = new AbortController()
 
   const install = async (
     ctx: FeatureContext,
     options?: EarthAnnotationFeatureOptions
   ): Promise<void> => {
     disposed = false
+    controller = new AbortController()
     ctxRef = ctx
     const merged = { ...defaultOptions, ...options }
     visible = merged.visible ?? true
-    items = await loadEarthAnnotations(merged.annotation.data)
+    items = await loadEarthAnnotations(merged.annotation.data, { signal: controller.signal })
     if (disposed) return
     layer = new EarthAnnotationLayer(ctx.viewer, items, {
       visible,
@@ -81,6 +83,7 @@ export function createEarthAnnotationFeature(
     },
     dispose() {
       disposed = true
+      controller.abort()
       if (nodeId && ctxRef?.layerManager?.get(nodeId)) {
         ctxRef.layerManager.remove(nodeId, { removeSource: false })
       }

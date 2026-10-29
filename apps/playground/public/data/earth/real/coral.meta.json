@@ -1,0 +1,1 @@
+{"format":"earth-scalar-f32-v1","legend":{"min":0,"max":7,"unit":"热压力等级","colors":["#057ab0","#ffffb2","#fecc5c","#fd8d3c","#e31a1c","#bd0026","#800026","#46002a"]},"frames":[{"time":"2026-10-25T12:00:00.000Z","width":2401,"height":1200,"bounds":{"west":-180,"east":180,"south":-89.875,"north":89.975},"noData":-9999,"binary":"coral-0.f32.gz"}]}

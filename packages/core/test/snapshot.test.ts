@@ -15,6 +15,42 @@ const drawings = {
 }
 
 describe('SceneSnapshotService', () => {
+  it('restores extensions before the final clock/view and reports unknown or failing extensions', async () => {
+    const { manager, snapshots, dispose } = createPersistenceHarness()
+    const order: string[] = []
+    const unregister = snapshots.registerExtension('earth', {
+      capture: () => ({ mode: 'atmosphere' }),
+      async restore(value) {
+        expect(value).toEqual({ mode: 'atmosphere' })
+        manager.clock.seek('2020-01-01')
+        order.push('restore')
+      },
+      afterRestore() {
+        expect(manager.clock.state.currentTime.toISOString()).toBe('2026-01-01T01:00:00.000Z')
+        order.push('after')
+      }
+    })
+    manager.clock.seek('2026-01-01T01:00:00Z')
+    const { snapshot } = snapshots.capture()
+    snapshot.extensions!.unknown = {}
+    snapshot.extensions!.broken = {}
+    snapshots.registerExtension('broken', {
+      capture: () => null,
+      restore() {
+        throw new Error('missing dataset')
+      }
+    })
+    const report = await snapshots.restore(snapshot)
+    expect(order).toEqual(['restore', 'after'])
+    expect(report.skipped).toContainEqual({ id: 'extension:unknown', reason: '未注册的场景扩展' })
+    expect(report.failed).toContainEqual({ id: 'extension:broken', reason: 'missing dataset' })
+    unregister()
+    expect(snapshots.capture().snapshot.extensions).not.toHaveProperty('earth')
+    const legacy = { ...snapshot }
+    delete legacy.extensions
+    expect((await snapshots.restore(legacy)).failed).toEqual([])
+    dispose()
+  })
   it('round-trips a layer tree, standalone sources, drawings, view and paused clock', async () => {
     const { manager: m, snapshots, dispose } = createPersistenceHarness()
     await m.imagery.add('local', { alpha: 0.7 })

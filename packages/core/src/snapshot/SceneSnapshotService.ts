@@ -17,6 +17,7 @@ import type {
   SnapshotRestoreOptions,
   SnapshotRestoreResult
 } from './types'
+import type { SnapshotExtensionAdapter } from './types'
 
 interface OwnedResource {
   kind: SnapshotResourceEntry['kind']
@@ -27,6 +28,7 @@ interface OwnedResource {
 /** capture() enrolls serializable content; restore() replaces only enrolled/restored objects. */
 export class SceneSnapshotService {
   private registry = new Map<string, SnapshotResource>()
+  private extensions = new Map<string, SnapshotExtensionAdapter>()
   private owned: OwnedResource[] = []
   private ownedNodes = new Map<string, object>()
   private ownedDrawings = new Set<DrawSession>()
@@ -35,6 +37,16 @@ export class SceneSnapshotService {
   private sequence = 0
 
   constructor(private readonly manager: CesiumViewerManager) {}
+
+  registerExtension(id: string, adapter: SnapshotExtensionAdapter): () => void {
+    this.assertAlive()
+    if (!id || this.extensions.has(id) || ['__proto__', 'constructor', 'prototype'].includes(id))
+      throw new Error('扩展 ID 为空、非法或已注册')
+    this.extensions.set(id, adapter)
+    return () => {
+      if (this.extensions.get(id) === adapter) this.extensions.delete(id)
+    }
+  }
 
   registerResource(id: string, resource: SnapshotResource): () => void {
     this.assertAlive()
@@ -72,14 +84,12 @@ export class SceneSnapshotService {
         skipped.push({ id: `${kind}:${id}`, reason: this.message(error) })
       }
     }
-    m.imagery
-      .list()
-      .forEach((item) =>
-        add('imagery', item.id, m.imagery.definition(item.id), {
-          show: item.show,
-          alpha: item.alpha
-        })
-      )
+    m.imagery.list().forEach((item) =>
+      add('imagery', item.id, m.imagery.definition(item.id), {
+        show: item.show,
+        alpha: item.alpha
+      })
+    )
     m.dataSources.list().forEach((item) => {
       const definition = m.dataSources.definition(item.name)
       if (definition)
@@ -157,6 +167,15 @@ export class SceneSnapshotService {
         stopTime: clock.stopTime?.toISOString() ?? null
       }
     }
+    const extensions: Record<string, unknown> = {}
+    for (const [id, adapter] of this.extensions) {
+      try {
+        extensions[id] = snapshotJSON(adapter.capture())
+      } catch (error) {
+        skipped.push({ id: `extension:${id}`, reason: this.message(error) })
+      }
+    }
+    if (Object.keys(extensions).length) snapshot.extensions = extensions
     m.draw.sessionList
       .filter((session) => session.state === 'completed')
       .forEach((session) => this.ownedDrawings.add(session))
@@ -272,6 +291,23 @@ export class SceneSnapshotService {
         this.assertAlive()
         result.failed.push({ id: 'terrain', reason: this.message(error) })
       }
+      const restoredExtensions: Array<[string, SnapshotExtensionAdapter, unknown]> = []
+      for (const [id, state] of Object.entries(data.extensions ?? {})) {
+        const adapter = this.extensions.get(id)
+        if (!adapter) {
+          result.skipped.push({ id: `extension:${id}`, reason: '未注册的场景扩展' })
+          continue
+        }
+        try {
+          await adapter.restore(state)
+          this.assertAlive()
+          restoredExtensions.push([id, adapter, state])
+          result.succeeded.push(`extension:${id}`)
+        } catch (error) {
+          result.failed.push({ id: `extension:${id}`, reason: this.message(error) })
+        }
+      }
+      this.assertAlive()
       m.scene.setMode(data.mode, 0)
       m.camera.setView(data.camera, data.camera)
       m.clock.pause()
@@ -281,6 +317,13 @@ export class SceneSnapshotService {
       else m.clock.clearRange()
       m.clock.setMultiplier(data.clock.multiplier)
       m.clock.loop(data.clock.loop)
+      for (const [id, adapter, state] of restoredExtensions) {
+        try {
+          await adapter.afterRestore?.(state)
+        } catch (error) {
+          result.failed.push({ id: `extension:${id}`, reason: this.message(error) })
+        }
+      }
       m.scene.requestRender()
       result.succeeded.push('camera', 'mode', 'clock')
       return result
@@ -307,6 +350,7 @@ export class SceneSnapshotService {
   destroy(): void {
     this.destroyed = true
     this.registry.clear()
+    this.extensions.clear()
     this.owned = []
     this.ownedNodes.clear()
     this.ownedDrawings.clear()

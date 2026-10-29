@@ -3,6 +3,7 @@ import type {
   EarthAnnotationConfig,
   EarthBounds,
   EarthLegend,
+  EarthLevelConfig,
   EarthManifest,
   EarthMode,
   EarthModeConfig,
@@ -76,10 +77,17 @@ function parseOverlay(value: unknown): EarthOverlayConfig {
     max: num(value.max, 1),
     min: num(value.min, 0),
     scale: value.scale === 'log' ? 'log' : 'linear',
+    categories: Array.isArray(value.categories) ? parseColors(value.categories) : undefined,
     metadata: isRecord(value.metadata)
       ? {
           source: str(value.metadata.source),
+          publishedAt:
+            typeof value.metadata.publishedAt === 'string' ? value.metadata.publishedAt : undefined,
           resolution: num(value.metadata.resolution),
+          longitudeResolution:
+            typeof value.metadata.longitudeResolution === 'number'
+              ? value.metadata.longitudeResolution
+              : undefined,
           width: num(value.metadata.width),
           height: num(value.metadata.height),
           level: str(value.metadata.level),
@@ -100,14 +108,26 @@ function parseVector(value: unknown): EarthVectorConfig {
     data: str(value.data),
     colors: Array.isArray(value.colors) ? parseColors(value.colors) : undefined,
     particleHeight: num(value.particleHeight, 50000),
-    speedFactor: num(value.speedFactor, 1.5)
+    speedFactor: num(value.speedFactor, 1.5),
+    kind: value.kind === 'waves' || value.kind === 'currents' ? value.kind : 'wind',
+    metadata: isRecord(value.metadata)
+      ? {
+          source: str(value.metadata.source),
+          publishedAt:
+            typeof value.metadata.publishedAt === 'string' ? value.metadata.publishedAt : undefined,
+          level: str(value.metadata.level),
+          times: Array.isArray(value.metadata.times)
+            ? value.metadata.times.filter((t): t is string => typeof t === 'string')
+            : []
+        }
+      : undefined
   }
 }
 
-function parseMode(value: unknown): EarthModeConfig {
+function parseLevel(value: unknown): EarthLevelConfig {
   if (!isRecord(value)) throw new Error('@sgyx/cesium-kit-earth: 模式必须是对象')
   return {
-    id: str(value.id) as EarthMode,
+    id: str(value.id),
     label: str(value.label, str(value.id)),
     vectors: Array.isArray(value.vectors) ? value.vectors.map(parseVector) : [],
     overlays: Array.isArray(value.overlays) ? value.overlays.map(parseOverlay) : [],
@@ -116,6 +136,17 @@ function parseMode(value: unknown): EarthModeConfig {
     defaultAnnotations: Array.isArray(value.defaultAnnotations)
       ? value.defaultAnnotations.filter((item): item is string => typeof item === 'string')
       : undefined
+  }
+}
+
+function parseMode(value: unknown): EarthModeConfig {
+  const level = parseLevel(value)
+  const record = isRecord(value) ? value : {}
+  return {
+    ...level,
+    id: level.id as EarthMode,
+    defaultLevel: typeof record.defaultLevel === 'string' ? record.defaultLevel : undefined,
+    levels: Array.isArray(record.levels) ? record.levels.map(parseLevel) : undefined
   }
 }
 
@@ -167,6 +198,8 @@ export function parseEarthManifest(input: unknown): EarthManifest {
             ? input.metadata.times.filter((value): value is string => typeof value === 'string')
             : [],
           provenance: str(input.metadata.provenance),
+          publishedAt:
+            typeof input.metadata.publishedAt === 'string' ? input.metadata.publishedAt : undefined,
           coastline:
             typeof input.metadata.coastline === 'string' ? input.metadata.coastline : undefined
         }
@@ -183,7 +216,9 @@ function parseFrame(value: unknown): EarthScalarFrame {
   }
   const values = Array.isArray(value.values)
     ? (value.values as number[])
-    : Float32Array.from(value.values as unknown as ArrayLike<number>)
+    : value.values instanceof Float32Array
+      ? value.values
+      : Float32Array.from(value.values as unknown as ArrayLike<number>)
   if (values.length !== width * height) {
     throw new Error('@sgyx/cesium-kit-earth: 标量帧 values 长度不匹配')
   }

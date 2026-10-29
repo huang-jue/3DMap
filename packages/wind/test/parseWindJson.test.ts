@@ -2,6 +2,13 @@ import { describe, expect, it } from 'vitest'
 import { parseWindJson } from '../src/data/parseWindJson'
 
 describe('parseWindJson', () => {
+  it('preserves JSON null as missing ocean vectors instead of inventing zero velocity', () => {
+    const grid = parseWindJson({ width: 2, height: 2, bounds: { west: 0, south: 0, east: 1, north: 1 },
+      u: [null, 0, 1, 2], v: [null, 0, 3, 4] })
+    expect(Number.isNaN(grid.u[0])).toBe(true)
+    expect(Number.isNaN(grid.v[0])).toBe(true)
+    expect(grid.u[1]).toBe(0)
+  })
   it('解析原生 WindGrid 并保持南到北行序', () => {
     const grid = parseWindJson({
       u: [0, 1, 2, 3, 4, 5],

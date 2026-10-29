@@ -1,0 +1,277 @@
+[
+  {
+    "file": "raw/air_density-1000hPa-current.epak",
+    "key": "air_density-1000hPa",
+    "url": "https://gaia.nullschool.net/data/gfs/2026/10/27/0600-air_density-isobaric-1000hPa-gfs-0.5.epak"
+  },
+  {
+    "file": "raw/air_density-10hPa-current.epak",
+    "key": "air_density-10hPa",
+    "url": "https://gaia.nullschool.net/data/gfs/2026/10/27/0700-air_density-isobaric-10hPa-gfs-0.5.epak"
+  },
+  {
+    "file": "raw/air_density-250hPa-current.epak",
+    "key": "air_density-250hPa",
+    "url": "https://gaia.nullschool.net/data/gfs/2026/10/27/0700-air_density-isobaric-250hPa-gfs-0.5.epak"
+  },
+  {
+    "file": "raw/air_density-500hPa-current.epak",
+    "key": "air_density-500hPa",
+    "url": "https://gaia.nullschool.net/data/gfs/2026/10/27/0700-air_density-isobaric-500hPa-gfs-0.5.epak"
+  },
+  {
+    "file": "raw/air_density-700hPa-current.epak",
+    "key": "air_density-700hPa",
+    "url": "https://gaia.nullschool.net/data/gfs/2026/10/27/0700-air_density-isobaric-700hPa-gfs-0.5.epak"
+  },
+  {
+    "file": "raw/air_density-70hPa-current.epak",
+    "key": "air_density-70hPa",
+    "url": "https://gaia.nullschool.net/data/gfs/2026/10/27/0700-air_density-isobaric-70hPa-gfs-0.5.epak"
+  },
+  {
+    "file": "raw/air_density-850hPa-current.epak",
+    "key": "air_density-850hPa",
+    "url": "https://gaia.nullschool.net/data/gfs/2026/10/27/0700-air_density-isobaric-850hPa-gfs-0.5.epak"
+  },
+  {
+    "file": "raw/aurora-current.json",
+    "key": "aurora",
+    "url": "https://gaia.nullschool.net/data/ovation/current/current-ovation.json"
+  },
+  {
+    "file": "raw/cape-current.epak",
+    "key": "cape",
+    "url": "https://gaia.nullschool.net/data/gfs/current/current-cape-gfs-0.5.epak"
+  },
+  {
+    "file": "raw/cloud-current.epak",
+    "key": "cloud",
+    "url": "https://gaia.nullschool.net/data/gfs/current/current-total_cloud_water-gfs-0.5.epak"
+  },
+  {
+    "file": "raw/coral-current.epak",
+    "key": "coral",
+    "url": "https://gaia.nullschool.net/data/crw/current/current-baa5-crw-0.15.epak"
+  },
+  {
+    "file": "raw/cosc-current.epak",
+    "key": "cosc",
+    "url": "https://gaia.nullschool.net/data/geos/current/current-cosc-geos.epak"
+  },
+  {
+    "file": "raw/currents-current.epak",
+    "key": "currents",
+    "url": "https://gaia.nullschool.net/data/glophy/current/current-uvo-1d_m-5m-glophy-1d4.epak"
+  },
+  {
+    "file": "raw/dewpoint-current.epak",
+    "key": "dewpoint",
+    "url": "https://gaia.nullschool.net/data/gfs/current/current-dew_point_temp-2m-gfs-0.5.epak"
+  },
+  {
+    "file": "raw/dust-current.epak",
+    "key": "dust",
+    "url": "https://gaia.nullschool.net/data/geos/current/current-duexttau-geos.epak"
+  },
+  {
+    "file": "raw/feels-like-current.epak",
+    "key": "feels-like",
+    "url": "https://gaia.nullschool.net/data/gfs/current/current-misery_index-gfs-0.5.epak"
+  },
+  {
+    "file": "raw/fires-current.epak",
+    "key": "fires",
+    "url": "https://gaia.nullschool.net/data/firms/current/current-firms.epak"
+  },
+  {
+    "file": "raw/humidity-current.epak",
+    "key": "humidity",
+    "url": "https://gaia.nullschool.net/data/gfs/current/current-relative_humidity-surface-level-gfs-0.5.epak"
+  },
+  {
+    "file": "raw/no2-current.epak",
+    "key": "no2",
+    "url": "https://gaia.nullschool.net/data/cams/current/current-no2-cams.epak"
+  },
+  {
+    "file": "raw/organic-current.epak",
+    "key": "organic",
+    "url": "https://gaia.nullschool.net/data/cams/current/current-omaod-cams.epak"
+  },
+  {
+    "file": "raw/pm1-current.epak",
+    "key": "pm1",
+    "url": "https://gaia.nullschool.net/data/cams/current/current-pm1-cams.epak"
+  },
+  {
+    "file": "raw/pm10-current.epak",
+    "key": "pm10",
+    "url": "https://gaia.nullschool.net/data/cams/current/current-pm10-cams.epak"
+  },
+  {
+    "file": "raw/pressure-current.epak",
+    "key": "pressure",
+    "url": "https://gaia.nullschool.net/data/gfs/current/current-mean_sea_level_pressure-gfs-0.5.epak"
+  },
+  {
+    "file": "raw/rain-current.epak",
+    "key": "rain",
+    "url": "https://gaia.nullschool.net/data/gfs/current/current-precip_3hr-gfs-0.5.epak"
+  },
+  {
+    "file": "raw/relative_humidity-1000hPa-current.epak",
+    "key": "relative_humidity-1000hPa",
+    "url": "https://gaia.nullschool.net/data/gfs/current/current-relative_humidity-isobaric-1000hPa-gfs-0.5.epak"
+  },
+  {
+    "file": "raw/relative_humidity-10hPa-current.epak",
+    "key": "relative_humidity-10hPa",
+    "url": "https://gaia.nullschool.net/data/gfs/current/current-relative_humidity-isobaric-10hPa-gfs-0.5.epak"
+  },
+  {
+    "file": "raw/relative_humidity-250hPa-current.epak",
+    "key": "relative_humidity-250hPa",
+    "url": "https://gaia.nullschool.net/data/gfs/current/current-relative_humidity-isobaric-250hPa-gfs-0.5.epak"
+  },
+  {
+    "file": "raw/relative_humidity-500hPa-current.epak",
+    "key": "relative_humidity-500hPa",
+    "url": "https://gaia.nullschool.net/data/gfs/current/current-relative_humidity-isobaric-500hPa-gfs-0.5.epak"
+  },
+  {
+    "file": "raw/relative_humidity-700hPa-current.epak",
+    "key": "relative_humidity-700hPa",
+    "url": "https://gaia.nullschool.net/data/gfs/current/current-relative_humidity-isobaric-700hPa-gfs-0.5.epak"
+  },
+  {
+    "file": "raw/relative_humidity-70hPa-current.epak",
+    "key": "relative_humidity-70hPa",
+    "url": "https://gaia.nullschool.net/data/gfs/current/current-relative_humidity-isobaric-70hPa-gfs-0.5.epak"
+  },
+  {
+    "file": "raw/relative_humidity-850hPa-current.epak",
+    "key": "relative_humidity-850hPa",
+    "url": "https://gaia.nullschool.net/data/gfs/current/current-relative_humidity-isobaric-850hPa-gfs-0.5.epak"
+  },
+  {
+    "file": "raw/so2smass-current.epak",
+    "key": "so2smass",
+    "url": "https://gaia.nullschool.net/data/geos/current/current-so2smass-geos.epak"
+  },
+  {
+    "file": "raw/sst-current.epak",
+    "key": "sst",
+    "url": "https://gaia.nullschool.net/data/ostia/current/current-sea_surface_temp-ostia-0.5.epak"
+  },
+  {
+    "file": "raw/sst-anomaly-oisst-current.epak",
+    "key": "sst-anomaly-oisst",
+    "url": "https://gaia.nullschool.net/data/oisst/current/current-sea_surface_temp_anomaly-oisst-0.5.epak"
+  },
+  {
+    "file": "raw/sulfate-current.epak",
+    "key": "sulfate",
+    "url": "https://gaia.nullschool.net/data/geos/current/current-suexttau-geos.epak"
+  },
+  {
+    "file": "raw/temp-1000hPa-current.epak",
+    "key": "temp-1000hPa",
+    "url": "https://gaia.nullschool.net/data/gfs/current/current-temp-isobaric-1000hPa-gfs-0.5.epak"
+  },
+  {
+    "file": "raw/temp-10hPa-current.epak",
+    "key": "temp-10hPa",
+    "url": "https://gaia.nullschool.net/data/gfs/current/current-temp-isobaric-10hPa-gfs-0.5.epak"
+  },
+  {
+    "file": "raw/temp-250hPa-current.epak",
+    "key": "temp-250hPa",
+    "url": "https://gaia.nullschool.net/data/gfs/current/current-temp-isobaric-250hPa-gfs-0.5.epak"
+  },
+  {
+    "file": "raw/temp-500hPa-current.epak",
+    "key": "temp-500hPa",
+    "url": "https://gaia.nullschool.net/data/gfs/current/current-temp-isobaric-500hPa-gfs-0.5.epak"
+  },
+  {
+    "file": "raw/temp-700hPa-current.epak",
+    "key": "temp-700hPa",
+    "url": "https://gaia.nullschool.net/data/gfs/current/current-temp-isobaric-700hPa-gfs-0.5.epak"
+  },
+  {
+    "file": "raw/temp-70hPa-current.epak",
+    "key": "temp-70hPa",
+    "url": "https://gaia.nullschool.net/data/gfs/current/current-temp-isobaric-70hPa-gfs-0.5.epak"
+  },
+  {
+    "file": "raw/temp-850hPa-current.epak",
+    "key": "temp-850hPa",
+    "url": "https://gaia.nullschool.net/data/gfs/current/current-temp-isobaric-850hPa-gfs-0.5.epak"
+  },
+  {
+    "file": "raw/temperature-current.epak",
+    "key": "temperature",
+    "url": "https://gaia.nullschool.net/data/gfs/current/current-temp-surface-level-gfs-0.5.epak"
+  },
+  {
+    "file": "raw/uvi-current.epak",
+    "key": "uvi",
+    "url": "https://gaia.nullschool.net/data/cpcuvi/current/current-cpcuvi.epak"
+  },
+  {
+    "file": "raw/water-current.epak",
+    "key": "water",
+    "url": "https://gaia.nullschool.net/data/gfs/current/current-total_precipitable_water-gfs-0.5.epak"
+  },
+  {
+    "file": "raw/wave-height-current.epak",
+    "key": "wave-height",
+    "url": "https://gaia.nullschool.net/data/ww3/current/current-sig_height-wave-30m.epak"
+  },
+  {
+    "file": "raw/waves-current.epak",
+    "key": "waves",
+    "url": "https://gaia.nullschool.net/data/ww3/current/current-primary-wave-30m.epak"
+  },
+  {
+    "file": "raw/wetbulb-current.epak",
+    "key": "wetbulb",
+    "url": "https://gaia.nullschool.net/data/gfs/current/current-wet_bulb_temp-2m-gfs-0.5.epak"
+  },
+  {
+    "file": "raw/wind-1000hPa-current.epak",
+    "key": "wind-1000hPa",
+    "url": "https://gaia.nullschool.net/data/gfs/current/current-wind-isobaric-1000hPa-gfs-0.5.epak"
+  },
+  {
+    "file": "raw/wind-10hPa-current.epak",
+    "key": "wind-10hPa",
+    "url": "https://gaia.nullschool.net/data/gfs/current/current-wind-isobaric-10hPa-gfs-0.5.epak"
+  },
+  {
+    "file": "raw/wind-250hPa-current.epak",
+    "key": "wind-250hPa",
+    "url": "https://gaia.nullschool.net/data/gfs/current/current-wind-isobaric-250hPa-gfs-0.5.epak"
+  },
+  {
+    "file": "raw/wind-500hPa-current.epak",
+    "key": "wind-500hPa",
+    "url": "https://gaia.nullschool.net/data/gfs/current/current-wind-isobaric-500hPa-gfs-0.5.epak"
+  },
+  {
+    "file": "raw/wind-700hPa-current.epak",
+    "key": "wind-700hPa",
+    "url": "https://gaia.nullschool.net/data/gfs/current/current-wind-isobaric-700hPa-gfs-0.5.epak"
+  },
+  {
+    "file": "raw/wind-70hPa-current.epak",
+    "key": "wind-70hPa",
+    "url": "https://gaia.nullschool.net/data/gfs/current/current-wind-isobaric-70hPa-gfs-0.5.epak"
+  },
+  {
+    "file": "raw/wind-850hPa-current.epak",
+    "key": "wind-850hPa",
+    "url": "https://gaia.nullschool.net/data/gfs/current/current-wind-isobaric-850hPa-gfs-0.5.epak"
+  }
+]

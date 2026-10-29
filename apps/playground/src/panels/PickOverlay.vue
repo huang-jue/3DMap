@@ -28,7 +28,10 @@ const current = computed(() => last.value ?? hovered.value)
 .pick-overlay {
   position: absolute;
   left: 16px;
-  bottom: 16px;
+  right: 16px;
+  min-height: 32px;
+  flex-wrap: wrap;
+  bottom: calc(8px + env(safe-area-inset-bottom));
   z-index: 10;
   display: flex;
   align-items: center;
@@ -38,7 +41,10 @@ const current = computed(() => last.value ?? hovered.value)
   background: rgba(17, 24, 39, 0.82);
   backdrop-filter: blur(6px);
   color: #e5e7eb;
-  font: 12px/1.4 'SFMono-Regular', Consolas, monospace;
+  font:
+    12px/1.4 'SFMono-Regular',
+    Consolas,
+    monospace;
   pointer-events: none;
 }
 

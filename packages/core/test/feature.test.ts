@@ -92,7 +92,9 @@ function createHarness(): Harness {
   }
 }
 
-function markerFeature(onInstall?: (ctx: FeatureContext) => void): CesiumFeature<{ count: number }> {
+function markerFeature(
+  onInstall?: (ctx: FeatureContext) => void
+): CesiumFeature<{ count: number }> {
   return {
     name: 'markers',
     install(ctx, options) {
@@ -106,6 +108,27 @@ function markerFeature(onInstall?: (ctx: FeatureContext) => void): CesiumFeature
 }
 
 describe('FeatureRegistry', () => {
+  it('does not remove a replacement when an unregistered installation rejects late', async () => {
+    const { deps } = createHarness()
+    const registry = new FeatureRegistry(deps)
+    let reject!: (error: Error) => void
+    const old = registry.register({
+      name: 'same',
+      install: () =>
+        new Promise<void>((_, fail) => {
+          reject = fail
+        })
+    })
+    registry.unregister('same')
+    const dispose = vi.fn()
+    await registry.register({ name: 'same', install() {}, dispose })
+    reject(new Error('late failure'))
+    await old
+    expect(registry.has('same')).toBe(true)
+    expect(dispose).not.toHaveBeenCalled()
+    registry.unregister('same')
+    expect(dispose).toHaveBeenCalledOnce()
+  })
   it('注册时登记实体，卸载时全部清理', async () => {
     const { deps, entities, events } = createHarness()
     const registry = new FeatureRegistry(deps)

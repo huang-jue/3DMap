@@ -1,5 +1,15 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, reactive, ref, shallowRef, watch } from 'vue'
+import {
+  computed,
+  defineAsyncComponent,
+  nextTick,
+  onBeforeUnmount,
+  onMounted,
+  reactive,
+  ref,
+  shallowRef,
+  watch
+} from 'vue'
 import {
   Close,
   Expand,
@@ -13,9 +23,14 @@ import {
 import { ElMessage } from 'element-plus'
 import * as Cesium from 'cesium'
 import { useClock, useViewer } from '@sgyx/cesium-kit-vue'
+const EarthAnalysis = defineAsyncComponent(() => import('./EarthAnalysis.vue'))
+import EarthCompare from './EarthCompare.vue'
+import { formatEarthTime, saveFile, type EarthWorkspaceState } from './earthUtils'
+import { sharedDataRepository } from '@sgyx/cesium-kit-core'
+import { readEarthRoute, writeEarthRoute } from './earthRoute'
 import {
   createEarthPlugin,
-  parseEarthManifest,
+  loadEarthManifest,
   DEFAULT_EARTH_SETTINGS,
   type EarthManifest,
   type EarthMode,
@@ -40,6 +55,7 @@ const errorText = ref('')
 const manifest = ref<EarthManifest | null>(null)
 const earth = shallowRef<EarthPlugin | null>(null)
 const modeId = ref<EarthMode>('atmosphere')
+const levelId = ref('surface')
 const vectorId = ref('')
 const overlayId = ref('')
 const projection = ref<EarthProjection>('3D')
@@ -67,11 +83,58 @@ const weatherStatus = reactive({ points: '', warnings: '', windFarm: '' })
 const weatherLabels = { points: '城市预报', warnings: '气象预警', windFarm: '风电场' }
 const weatherSources = { points: 'points', warnings: 'warnings', windFarm: 'windFarm' } as const
 const settings = reactive<EarthSettings>({ ...DEFAULT_EARTH_SETTINGS })
-const controlsOpen = ref(false)
+const controlsOpen = ref(!window.matchMedia('(max-width: 720px)').matches)
+const activeDrawer = ref('layers')
+const compareRef = ref<InstanceType<typeof EarthCompare> | null>(null)
+const actualSampledTime = ref<Date | null>(null)
+const loadedFrameTimes = ref<string[]>([])
+const diagnostics = ref(sharedDataRepository.loads)
+const cacheStats = ref(sharedDataRepository.stats)
+const sceneInput = ref<HTMLInputElement | null>(null)
+let readyResolve!: () => void
+const initialized = new Promise<void>((resolve) => {
+  readyResolve = resolve
+})
+let initialRequest: AbortController | undefined
+let loadRevision = 0
+let previousFocus: HTMLElement | null = null
+function openDrawer(name: string) {
+  previousFocus = document.activeElement as HTMLElement | null
+  if (activeDrawer.value === name && controlsOpen.value) controlsOpen.value = false
+  else {
+    activeDrawer.value = name
+    controlsOpen.value = true
+  }
+}
+function toggleData() {
+  if (window.matchMedia('(max-width: 720px)').matches) {
+    settings.infoBar = true
+    openDrawer('data')
+  } else settings.infoBar = !settings.infoBar
+}
+function showAnalysis() {
+  activeDrawer.value = 'analysis'
+  controlsOpen.value = true
+}
+function closeDrawer() {
+  controlsOpen.value = false
+  previousFocus?.focus()
+}
+function escapeDrawer(event: KeyboardEvent) {
+  if (event.key === 'Escape' && !document.querySelector('[role=combobox][aria-expanded=true]'))
+    closeDrawer()
+}
+const statusTimer = setInterval(() => {
+  actualSampledTime.value = earth.value?.sampledTime ?? null
+  refreshProbe()
+  loadedFrameTimes.value = earth.value?.frameTimes.map((time) => time.toISOString()) ?? []
+  diagnostics.value = sharedDataRepository.loads
+  cacheStats.value = sharedDataRepository.stats
+}, 500)
+const catalogOpen = ref(true)
 const timelineValue = ref(0)
 
 const currentTime = computed(() => state.value?.currentTime ?? new Date())
-const readout = computed(() => probe.value ?? hoveredProbe.value)
 const flowSpeed = computed({
   get: () => settings.flowSpeed ?? 1.5,
   set: (value: number) => {
@@ -93,9 +156,19 @@ const overlayOpacity = computed({
     applySettings()
   }
 })
-const frameTimes = computed(() => manifest.value?.metadata?.times ?? [])
+const frameTimes = computed(() =>
+  loadedFrameTimes.value.length
+    ? loadedFrameTimes.value
+    : (activeOverlay.value?.metadata?.times ?? manifest.value?.metadata?.times ?? [])
+)
+const fieldRange = computed(() => {
+  const times = frameTimes.value.map((t) => Date.parse(t)).filter(Number.isFinite)
+  return times.length
+    ? { start: new Date(Math.min(...times)), end: new Date(Math.max(...times)) }
+    : manifest.value?.range
+})
 const timeProgress = computed(() => {
-  const range = manifest.value?.range
+  const range = fieldRange.value
   if (!range) return timelineValue.value
   const total = range.end.getTime() - range.start.getTime()
   if (total <= 0) return 0
@@ -107,8 +180,12 @@ const timeProgress = computed(() => {
 const activeMode = computed<EarthModeConfig | null>(
   () => manifest.value?.modes.find((mode) => mode.id === modeId.value) ?? null
 )
-const vectors = computed<EarthVectorConfig[]>(() => activeMode.value?.vectors ?? [])
-const overlays = computed<EarthOverlayConfig[]>(() => activeMode.value?.overlays ?? [])
+const activeLevel = computed(
+  () => activeMode.value?.levels?.find((l) => l.id === levelId.value) ?? activeMode.value
+)
+const vectors = computed<EarthVectorConfig[]>(() => activeLevel.value?.vectors ?? [])
+const overlays = computed<EarthOverlayConfig[]>(() => activeLevel.value?.overlays ?? [])
+const activeVector = computed(() => vectors.value.find((v) => v.id === vectorId.value))
 const activeOverlay = computed<EarthOverlayConfig | null>(
   () => overlays.value.find((item) => item.id === overlayId.value) ?? null
 )
@@ -116,6 +193,30 @@ const legend = computed(() => activeOverlay.value)
 const fieldMetadata = computed(() => activeOverlay.value?.metadata ?? manifest.value?.metadata)
 const fieldSource = computed(() => activeOverlay.value?.metadata?.source ?? manifest.value?.source)
 const isPm25 = computed(() => dataset.value === 'real' && overlayId.value === 'pm25')
+const productProvider = computed(() =>
+  fieldSource.value?.includes('GFS') ? 'GFS' : (fieldSource.value?.split(' / ')[0] ?? 'EARTH')
+)
+const gridLabel = computed(() => {
+  const meta = fieldMetadata.value
+  if (!meta) return ''
+  const dx = 'longitudeResolution' in meta ? meta.longitudeResolution : undefined
+  return dx && dx !== meta.resolution
+    ? `${dx}° × ${meta.resolution}° 全球网格`
+    : `${meta.resolution}° 全球网格`
+})
+const vectorTime = computed(() => {
+  const times = activeVector.value?.metadata?.times ?? []
+  return times.length
+    ? new Date(
+        times.reduce((best, t) =>
+          Math.abs(Date.parse(t) - currentTime.value.getTime()) <
+          Math.abs(Date.parse(best) - currentTime.value.getTime())
+            ? t
+            : best
+        )
+      )
+    : null
+})
 const sampledTime = computed(() => {
   const times = fieldMetadata.value?.times ?? []
   if (!times.length) return currentTime.value
@@ -143,16 +244,11 @@ const panelClass = computed(() => ({
   [`earth-font-${settings.fontScale}`]: true
 }))
 
-function pad(value: number): string {
-  return String(value).padStart(2, '0')
-}
-
-function formatTime(value: Date | null | undefined): string {
-  if (!value) return '-'
-  return `${value.getFullYear()}-${pad(value.getMonth() + 1)}-${pad(value.getDate())} ${pad(value.getHours())}:${pad(value.getMinutes())}`
-}
+const formatTime = formatEarthTime
 
 function formatNumber(value: number): string {
+  if (value !== 0 && Math.abs(value) < 1)
+    return Number(value.toPrecision(3)).toString()
   if (Math.abs(value) >= 100) return value.toFixed(0)
   return value.toFixed(1).replace(/\.0$/, '')
 }
@@ -173,6 +269,32 @@ function syncSelectionsFromPlugin(): void {
   if (!plugin) return
   vectorId.value = plugin.vector?.id ?? ''
   overlayId.value = plugin.overlay?.id ?? ''
+  levelId.value = plugin.level?.id ?? activeMode.value?.defaultLevel ?? 'surface'
+}
+
+function syncRoute(): void {
+  if (dataset.value === 'real')
+    writeEarthRoute(
+      modeId.value,
+      activeMode.value?.levels ? levelId.value : 'surface',
+      overlayId.value,
+      vectorId.value,
+      projection.value
+    )
+}
+
+function viewMode(mode: EarthMode): void {
+  if (mode === 'space') manager.value?.camera.setView({ lon: -100, lat: 75, height: 16_000_000 })
+  else if (mode === 'biology')
+    manager.value?.camera.setView({ lon: 140, lat: -10, height: 16_000_000 })
+  else manager.value?.camera.setView({ lon: 120, lat: 22, height: 16_000_000 })
+  if (projection.value === 'ORTHOGRAPHIC') earth.value?.setProjection('ORTHOGRAPHIC')
+}
+
+function refreshProbe(): void {
+  if (probe.value && earth.value) probe.value = earth.value.probe(probe.value.lon, probe.value.lat)
+  if (hoveredProbe.value && earth.value)
+    hoveredProbe.value = earth.value.probe(hoveredProbe.value.lon, hoveredProbe.value.lat)
 }
 
 async function enable(): Promise<void> {
@@ -229,32 +351,35 @@ async function enable(): Promise<void> {
       else instance.clock.pause()
     }
   }
+  const revision = ++loadRevision
+  initialRequest?.abort()
+  initialRequest = new AbortController()
   loading.value = true
   errorText.value = ''
   pendingPlugin = null
   cancelled = false
   let pending: EarthPlugin | null = null
   try {
-    const response = await fetch(
+    const dataRef =
       dataset.value === 'real' ? '/data/earth/real/manifest.json' : '/data/earth/manifest.json'
-    )
-    if (!response.ok) {
-      throw new Error(`地球样例加载失败 ${response.status} ${response.statusText}`)
-    }
-    const parsed = parseEarthManifest(await response.json())
+    const parsed = await loadEarthManifest(dataRef, { signal: initialRequest.signal })
+    if (cancelled || revision !== loadRevision) return
     manifest.value = parsed
-    const startPm25 =
-      dataset.value === 'real' &&
-      (new URLSearchParams(window.location.search).get('earth') === 'pm25' ||
-        window.location.hash.includes('particulates'))
-    modeId.value = startPm25 ? 'particulate' : 'atmosphere'
+    const route = readEarthRoute(
+      dataset.value === 'real' ? window.location : { search: '', hash: '' },
+      parsed
+    )
+    modeId.value = route.mode
+    levelId.value = route.level
     syncAnnotationsFromMode()
     timeValue.value = new Date(parsed.range.start)
     const plugin = createEarthPlugin({
       data: parsed,
+      dataRef,
       mode: modeId.value,
-      vector: 'wind',
-      overlay: startPm25 ? 'pm25' : dataset.value === 'real' ? 'wind-speed' : 'temperature',
+      level: levelId.value,
+      vector: route.vector,
+      overlay: route.overlay,
       followClock: true,
       syncClockRange: true,
       settings,
@@ -272,13 +397,14 @@ async function enable(): Promise<void> {
         syncSelectionsFromPlugin()
       },
       onError: (key, error) => {
+        errorText.value = `${key}：${errorMessage(error)}`
         ElMessage.warning(`${key} 加载失败：${errorMessage(error)}`)
       }
     })
     pending = plugin
     pendingPlugin = plugin
     await instance.features.register(plugin)
-    if (cancelled) {
+    if (cancelled || revision !== loadRevision) {
       instance.features.unregister(plugin.name)
       pendingPlugin = null
       return
@@ -294,14 +420,17 @@ async function enable(): Promise<void> {
       })
     }
     instance.clock.pause()
-    if (startPm25) onProjection('ORTHOGRAPHIC')
+    onProjection(route.projection)
+    if (route.mode === 'space' || route.mode === 'biology') viewMode(route.mode)
     instance.clock.loop(true)
     instance.clock.setMultiplier(speed.value)
     loading.value = false
+    syncRoute()
   } catch (error) {
     if (pending && manager.value?.features.has(pending.name)) {
       manager.value.features.unregister(pending.name)
     }
+    if (cancelled || revision !== loadRevision) return
     errorText.value = errorMessage(error)
     loading.value = false
     ElMessage.error(errorText.value)
@@ -334,6 +463,7 @@ function clearProbe(): void {
 }
 
 async function switchDataset(): Promise<void> {
+  compareRef.value?.stop()
   if (busy.value) return
   busy.value = true
   const instance = manager.value
@@ -379,10 +509,12 @@ function close(): void {
 }
 
 async function onModeChange(value: EarthMode): Promise<void> {
+  errorText.value = ''
   const plugin = earth.value
   if (!plugin || busy.value) return
   busy.value = true
   modeId.value = value
+  levelId.value = activeMode.value?.defaultLevel ?? activeMode.value?.id ?? 'surface'
   overlayId.value = activeMode.value?.defaultOverlay ?? activeMode.value?.overlays[0]?.id ?? ''
   vectorId.value = activeMode.value?.defaultVector ?? activeMode.value?.vectors[0]?.id ?? ''
   syncAnnotationsFromMode()
@@ -391,7 +523,8 @@ async function onModeChange(value: EarthMode): Promise<void> {
     modeId.value = plugin.mode?.id ?? value
     syncAnnotationsFromMode()
     syncSelectionsFromPlugin()
-    if (dataset.value === 'real' && value === 'particulate') onProjection('ORTHOGRAPHIC')
+    if (dataset.value === 'real' && projection.value === '3D') onProjection('ORTHOGRAPHIC')
+    viewMode(value)
     if (probe.value) probe.value = plugin.probe(probe.value.lon, probe.value.lat)
     if (hoveredProbe.value)
       hoveredProbe.value = plugin.probe(hoveredProbe.value.lon, hoveredProbe.value.lat)
@@ -399,24 +532,59 @@ async function onModeChange(value: EarthMode): Promise<void> {
     ElMessage.error(`模式切换失败：${errorMessage(error)}`)
   } finally {
     busy.value = false
+    syncRoute()
   }
 }
 
 async function onOverlayChange(value: string): Promise<void> {
+  errorText.value = ''
   if (busy.value || loading.value) return
-  overlayId.value = value
-  await earth.value?.setOverlay(value)
+  busy.value = true
+  try {
+    overlayId.value = value
+    await earth.value?.setOverlay(value || null)
+    syncSelectionsFromPlugin()
+    refreshProbe()
+  } finally {
+    busy.value = false
+    syncRoute()
+  }
 }
 
 async function onVectorChange(value: string): Promise<void> {
+  errorText.value = ''
   if (busy.value || loading.value) return
-  vectorId.value = value
-  await earth.value?.setVector(value || null)
+  busy.value = true
+  try {
+    vectorId.value = value
+    await earth.value?.setVector(value || null)
+    syncSelectionsFromPlugin()
+    refreshProbe()
+  } finally {
+    busy.value = false
+    syncRoute()
+  }
+}
+
+async function onLevelChange(id: string): Promise<void> {
+  errorText.value = ''
+  if (busy.value || !earth.value) return
+  busy.value = true
+  try {
+    await earth.value.setLevel(id)
+    syncSelectionsFromPlugin()
+    refreshProbe()
+  } finally {
+    busy.value = false
+    syncRoute()
+  }
 }
 
 function onAnnotation(id: string, value: boolean): void {
   annotationVisible[id] = value
-  earth.value?.setAnnotation(id, value)
+  void Promise.resolve(earth.value?.setAnnotation(id, value)).catch((error) =>
+    ElMessage.error(errorMessage(error))
+  )
 }
 
 async function onWeather(key: WeatherKey, value: boolean): Promise<void> {
@@ -483,11 +651,12 @@ function locateWeather(key: WeatherKey): void {
 function onProjection(value: EarthProjection): void {
   projection.value = value
   earth.value?.setProjection(value)
+  syncRoute()
 }
 
 function onTimeChange(value: Date | null): void {
   if (!value) return
-  const range = manifest.value?.range
+  const range = fieldRange.value
   const bounded = range
     ? new Date(Math.min(range.end.getTime(), Math.max(range.start.getTime(), value.getTime())))
     : value
@@ -496,7 +665,7 @@ function onTimeChange(value: Date | null): void {
 }
 
 function onTimelineInput(value: string): void {
-  const range = manifest.value?.range
+  const range = fieldRange.value
   if (!range) return
   const next = Number(value)
   timelineValue.value = next
@@ -512,6 +681,7 @@ function onFollowClock(value: boolean): void {
 }
 
 function onPlay(): void {
+  if (frameTimes.value.length < 2) return
   onFollowClock(true)
   manager.value?.clock.setMultiplier(speed.value)
   manager.value?.clock.play()
@@ -551,7 +721,111 @@ const speedOptions = [
   { value: 86400, label: '1 天/秒' }
 ]
 
+function captureWorkspace(): EarthWorkspaceState {
+  if (!earth.value || loading.value || busy.value) throw new Error('地球数据尚未就绪')
+  const frustum = manager.value?.viewer.camera.frustum
+  return {
+    plugin: earth.value.getState(),
+    point: probe.value ? { lon: probe.value.lon, lat: probe.value.lat } : null,
+    drawer: activeDrawer.value,
+    drawerOpen: controlsOpen.value,
+    comparison: compareRef.value?.getState() ?? null,
+    ...(frustum instanceof Cesium.OrthographicFrustum ? { frustumWidth: frustum.width } : {})
+  }
+}
+async function restoreWorkspace(saved: EarthWorkspaceState) {
+  await initialized
+  if (
+    !saved?.plugin ||
+    !['/data/earth/real/manifest.json', '/data/earth/manifest.json'].includes(saved.plugin.dataRef)
+  )
+    throw new Error('场景数据集未配置')
+  const nextDataset = saved.plugin.dataRef.includes('/real/') ? 'real' : 'sample'
+  if (dataset.value !== nextDataset) {
+    dataset.value = nextDataset
+    await switchDataset()
+  }
+  if (!earth.value) throw new Error('地球插件未就绪')
+  await earth.value.restoreState(saved.plugin)
+  modeId.value = saved.plugin.mode
+  projection.value = saved.plugin.projection
+  Object.assign(settings, saved.plugin.settings)
+  Object.assign(weatherVisible, saved.plugin.weather)
+  manifest.value?.annotations.forEach((item) => {
+    annotationVisible[item.id] = saved.plugin.annotations.includes(item.id)
+  })
+  syncSelectionsFromPlugin()
+  probe.value = saved.point ? earth.value.probe(saved.point.lon, saved.point.lat) : null
+  updateProbeMarker(probe.value)
+  activeDrawer.value = ['layers', 'settings', 'points', 'data', 'analysis'].includes(saved.drawer)
+    ? saved.drawer
+    : 'layers'
+  controlsOpen.value = saved.drawerOpen
+  await nextTick()
+  await compareRef.value?.restore(saved.comparison)
+  syncRoute()
+}
+function finishRestore(saved: EarthWorkspaceState) {
+  const view = manager.value?.camera.getView()
+  earth.value?.setProjection(saved.plugin.projection)
+  if (view) manager.value?.camera.setView(view, view)
+  const frustum = manager.value?.viewer.camera.frustum
+  if (frustum instanceof Cesium.OrthographicFrustum && Number.isFinite(saved.frustumWidth))
+    frustum.width = saved.frustumWidth!
+}
+async function saveWorkspace(local = false) {
+  try {
+    const result = local ? manager.value?.snapshots.saveLocal() : manager.value?.snapshots.capture()
+    if (result && !local) saveFile('scene.json', JSON.stringify(result.snapshot, null, 2))
+    ElMessage.success(`场景已保存；跳过 ${result?.skipped.length ?? 0} 项`)
+  } catch (error) {
+    ElMessage.error(errorMessage(error))
+  }
+}
+async function restoreLocalScene() {
+  try {
+    const report = await manager.value?.snapshots.restoreLocal()
+    ElMessage.info(
+      `恢复完成；失败 ${report?.failed.length ?? 0}，跳过 ${report?.skipped.length ?? 0}`
+    )
+  } catch (error) {
+    ElMessage.error(errorMessage(error))
+  }
+}
+async function restoreFile(event: Event) {
+  const input = event.target as HTMLInputElement
+  try {
+    const file = input.files?.[0]
+    if (!file) return
+    const report = await manager.value?.snapshots.restore(await file.text())
+    ElMessage.info(
+      `恢复完成；失败 ${report?.failed.length ?? 0}，跳过 ${report?.skipped.length ?? 0}`
+    )
+  } catch (error) {
+    ElMessage.error(errorMessage(error))
+  } finally {
+    input.value = ''
+  }
+}
+async function retryLayers() {
+  if (!earth.value) {
+    await enable()
+    return
+  }
+  busy.value = true
+  try {
+    sharedDataRepository.clear()
+    await earth.value.setOverlay(overlayId.value || null)
+    await earth.value.setVector(vectorId.value || null)
+    errorText.value = Object.values(earth.value.errors).map(errorMessage).join('；')
+  } finally {
+    busy.value = false
+  }
+}
+defineExpose({ captureWorkspace, restoreWorkspace, finishRestore, whenReady: () => initialized })
+
 onMounted(async () => {
+  document.addEventListener('keydown', escapeDrawer, true)
   try {
     await whenReady()
     if (!cancelled) await enable()
@@ -560,6 +834,8 @@ onMounted(async () => {
       loading.value = false
       errorText.value = errorMessage(error)
     }
+  } finally {
+    readyResolve()
   }
 })
 
@@ -572,6 +848,11 @@ watch(timeProgress, (value) => {
 })
 
 onBeforeUnmount(() => {
+  clearInterval(statusTimer)
+  document.removeEventListener('keydown', escapeDrawer, true)
+  initialRequest?.abort()
+  loadRevision++
+  compareRef.value?.stop()
   updateProbeMarker(null)
   cancelled = true
   const instance = manager.value
@@ -586,14 +867,18 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div class="earth-panel-wrap">
+  <div
+    class="earth-panel-wrap"
+    :class="[`drawer-${activeDrawer}`, { 'drawer-open': controlsOpen }]"
+  >
     <div class="earth-hud earth-hud-top">
       <div class="earth-brand-mark">
         <span class="earth-brand-dot" />
         <span>EARTH / {{ activeMode?.label ?? 'GLOBAL' }}</span>
       </div>
       <div class="earth-hud-status mono">
-        {{ formatTime(currentTime) }} · {{ activeOverlay?.label ?? '数据加载中' }}
+        {{ formatTime(currentTime) }} UTC+8 ·
+        {{ activeOverlay?.label ?? (loading ? '数据加载中' : '仅矢量') }}
       </div>
       <div class="earth-hud-actions">
         <el-button
@@ -601,16 +886,25 @@ onBeforeUnmount(() => {
           circle
           text
           title="显示当前数据"
-          @click="settings.infoBar = !settings.infoBar"
+          aria-label="显示当前数据"
+          @click="toggleData"
         />
         <el-button
           :icon="controlsOpen ? Expand : Menu"
           circle
           text
           title="切换控制面板"
-          @click="controlsOpen = !controlsOpen"
+          aria-label="切换控制面板"
+          @click="openDrawer(activeDrawer)"
         />
-        <el-button :icon="Close" circle text title="退出地球模式" @click="close" />
+        <el-button
+          :icon="Close"
+          circle
+          text
+          title="退出地球模式"
+          aria-label="退出地球模式"
+          @click="close"
+        />
       </div>
     </div>
 
@@ -628,22 +922,223 @@ onBeforeUnmount(() => {
       </button>
     </div>
 
-    <section v-show="controlsOpen" class="earth-panel" :class="panelClass">
+    <nav
+      v-show="controlsOpen && ['layers', 'settings', 'analysis'].includes(activeDrawer)"
+      class="earth-sidebar-tabs"
+      aria-label="地球侧栏"
+    >
+      <button
+        v-for="tab in [
+          { id: 'layers', label: '图层' },
+          { id: 'settings', label: '设置' },
+          { id: 'analysis', label: '分析' }
+        ]"
+        :key="tab.id"
+        type="button"
+        :aria-pressed="activeDrawer === tab.id"
+        @click="activeDrawer = tab.id"
+      >
+        {{ tab.label }}
+      </button>
+      <button type="button" aria-label="关闭侧栏" @click="closeDrawer">×</button>
+    </nav>
+
+    <section
+      v-if="manifest && !loading"
+      v-show="controlsOpen && activeDrawer === 'layers'"
+      class="earth-catalog"
+      aria-label="地球图层目录"
+    >
+      <button
+        class="earth-catalog-heading"
+        type="button"
+        :aria-expanded="catalogOpen"
+        @click="catalogOpen = !catalogOpen"
+      >
+        <span
+        >图层目录
+          <small>{{ activeMode?.label }} / {{ activeOverlay?.label ?? '仅动画' }}</small></span
+        >
+        <span>{{ catalogOpen ? '收起 −' : '展开 +' }}</span>
+      </button>
+      <div v-show="catalogOpen" class="earth-catalog-content">
+        <div class="earth-catalog-row">
+          <span class="earth-catalog-label">模式</span>
+          <div class="earth-catalog-options" role="group" aria-label="数据模式">
+            <button
+              v-for="mode in manifest.modes"
+              :key="mode.id"
+              type="button"
+              :aria-pressed="modeId === mode.id"
+              :disabled="busy"
+              @click="onModeChange(mode.id)"
+            >
+              {{ mode.label }}
+            </button>
+          </div>
+        </div>
+        <div v-if="activeMode?.levels?.length" class="earth-catalog-row">
+          <span class="earth-catalog-label">高度</span>
+          <div class="earth-catalog-options" role="group" aria-label="大气高度">
+            <button
+              v-for="level in activeMode.levels"
+              :key="level.id"
+              type="button"
+              :aria-pressed="levelId === level.id"
+              :disabled="busy"
+              @click="onLevelChange(level.id)"
+            >
+              {{ level.label }}
+            </button>
+          </div>
+        </div>
+        <div class="earth-catalog-row">
+          <span class="earth-catalog-label">动画</span>
+          <div class="earth-catalog-options" role="group" aria-label="动画类型">
+            <button
+              type="button"
+              :aria-pressed="!vectorId"
+              :disabled="busy"
+              @click="onVectorChange('')"
+            >
+              关闭
+            </button>
+            <button
+              v-for="vector in vectors"
+              :key="vector.id"
+              type="button"
+              :aria-pressed="vectorId === vector.id"
+              :disabled="busy"
+              @click="onVectorChange(vector.id)"
+            >
+              {{ vector.label }}
+            </button>
+          </div>
+        </div>
+        <div class="earth-catalog-row">
+          <span class="earth-catalog-label">叠加层</span>
+          <div class="earth-catalog-options" role="group" aria-label="叠加图层">
+            <button
+              v-for="overlay in overlays"
+              :key="overlay.id"
+              type="button"
+              :aria-pressed="overlayId === overlay.id"
+              :disabled="busy"
+              @click="onOverlayChange(overlay.id)"
+            >
+              {{ overlay.label }}
+            </button>
+            <button
+              type="button"
+              :aria-pressed="!overlayId"
+              :disabled="busy"
+              @click="onOverlayChange('')"
+            >
+              无叠加层
+            </button>
+          </div>
+        </div>
+        <div class="earth-catalog-row">
+          <span class="earth-catalog-label">投影</span>
+          <div class="earth-catalog-options" role="group" aria-label="地图投影">
+            <button
+              v-for="view in [
+                { id: 'ORTHOGRAPHIC', label: '正交球面' },
+                { id: '3D', label: '透视球面' },
+                { id: '2D', label: '等距平面' },
+                { id: 'COLUMBUS_VIEW', label: '哥伦布' }
+              ] as const"
+              :key="view.id"
+              type="button"
+              :aria-pressed="projection === view.id"
+              :disabled="busy"
+              @click="onProjection(view.id)"
+            >
+              {{ view.label }}
+            </button>
+          </div>
+        </div>
+        <div v-if="modeId === 'biology' && manifest.annotations.length" class="earth-catalog-row">
+          <span class="earth-catalog-label">注释</span>
+          <div class="earth-catalog-options" role="group" aria-label="生物注释">
+            <button
+              v-for="annotation in manifest.annotations"
+              :key="annotation.id"
+              type="button"
+              :aria-pressed="annotationVisible[annotation.id] ?? false"
+              :disabled="busy"
+              @click="onAnnotation(annotation.id, !annotationVisible[annotation.id])"
+            >
+              {{ annotation.label }}
+            </button>
+          </div>
+        </div>
+        <p class="earth-catalog-note">
+          {{
+            busy
+              ? '正在加载图层…'
+              : '真实离线快照 · 每个图层保留原始有效时间 · 链接可直接打开当前视图'
+          }}
+        </p>
+      </div>
+    </section>
+
+    <section
+      v-show="controlsOpen && activeDrawer === 'settings'"
+      class="earth-panel"
+      :class="panelClass"
+    >
       <header class="earth-head">
         <div>
           <div class="earth-title">地球可视化</div>
           <div class="earth-sub mono">{{ manifest?.name ?? 'Global Earth' }}</div>
         </div>
         <div class="earth-actions">
-          <el-button :icon="Location" size="small" text title="重置视角" @click="resetView" />
-          <el-button :icon="Close" size="small" text title="退出地球模式" @click="close" />
+          <el-button
+            :icon="Location"
+            size="small"
+            text
+            title="重置视角"
+            aria-label="重置视角"
+            @click="resetView"
+          />
+          <el-button
+            :icon="Close"
+            size="small"
+            text
+            title="退出地球模式"
+            aria-label="退出地球模式"
+            @click="close"
+          />
         </div>
       </header>
 
-      <p v-if="errorText" class="earth-error">{{ errorText }}</p>
+      <p v-if="errorText" class="earth-error">
+        {{ errorText }} <el-button size="small" @click="retryLayers">重试加载</el-button>
+      </p>
       <div v-if="loading" class="earth-loading">正在加载地球数据…</div>
 
       <div v-else class="earth-scroll">
+        <div class="earth-save-actions">
+          <el-button size="small" @click="saveWorkspace()">导出场景</el-button
+          ><el-button size="small" @click="saveWorkspace(true)">保存到本地</el-button
+          ><el-button size="small" @click="sceneInput?.click()">导入场景</el-button>
+        </div>
+        <input
+          ref="sceneInput"
+          type="file"
+          accept=".json"
+          hidden
+          aria-label="导入地球场景"
+          @change="restoreFile"
+        />
+        <el-button size="small" @click="restoreLocalScene">恢复本地场景</el-button>
+        <EarthCompare
+          v-if="earth && manager"
+          ref="compareRef"
+          :manager="manager"
+          :primary-state="() => earth!.getState()"
+        />
         <div class="earth-block">
           <div class="earth-label">数据集</div>
           <el-select
@@ -652,7 +1147,7 @@ onBeforeUnmount(() => {
             aria-label="数据集"
             @change="switchDataset"
           >
-            <el-option value="real" label="真实 GFS + CAMS · 离线快照" />
+            <el-option value="real" label="真实全球数据 · 六种模式" />
             <el-option value="sample" label="合成样例 · 六种模式" />
           </el-select>
           <p class="earth-meta">{{ fieldSource }}</p>
@@ -701,6 +1196,7 @@ onBeforeUnmount(() => {
               :disabled="overlays.length === 0 || busy"
               @update:model-value="onOverlayChange(String($event))"
             >
+              <el-option value="" label="无叠加层" />
               <el-option
                 v-for="overlay in overlays"
                 :key="overlay.id"
@@ -739,7 +1235,9 @@ onBeforeUnmount(() => {
           />
           <div class="earth-row time-row">
             <el-button-group size="small">
-              <el-button :icon="VideoPlay" @click="onPlay">播放</el-button>
+              <el-button :icon="VideoPlay" :disabled="frameTimes.length < 2" @click="onPlay">
+                播放
+              </el-button>
               <el-button :icon="VideoPause" @click="onPause">暂停</el-button>
             </el-button-group>
             <el-select
@@ -774,7 +1272,7 @@ onBeforeUnmount(() => {
           </div>
           <div class="earth-legend" :style="legendStyle" />
           <div class="earth-legend-labels mono">
-            <span v-for="tick in legendTicks" :key="tick">{{ tick }}</span>
+            <span v-for="(tick, index) in legendTicks" :key="index">{{ tick }}</span>
           </div>
         </div>
 
@@ -950,67 +1448,138 @@ onBeforeUnmount(() => {
       </div>
     </section>
 
+    <section
+      v-if="earth && controlsOpen && activeDrawer === 'analysis'"
+      class="earth-analysis-panel"
+    >
+      <EarthAnalysis
+        :plugin="earth"
+        :point="probe"
+        :selection="`${modeId}:${levelId}:${overlayId}:${vectorId}`"
+      />
+    </section>
+    <div v-if="loading || busy || errorText" class="earth-global-status" role="status">
+      <span>{{ loading || busy ? '正在加载地球数据…' : errorText }}</span>
+      <button v-if="!loading && !busy" type="button" @click="retryLayers">重试加载</button>
+    </div>
     <aside v-if="!loading && settings.infoBar" class="earth-data-card">
       <div class="earth-data-kicker">
         {{
           dataset === 'real'
             ? isPm25
               ? 'CAMS / 真实颗粒物预报'
-              : 'GFS / 真实预报快照'
+              : `${productProvider} / 真实预报快照`
             : 'SYNTHETIC / 合成样例'
         }}
       </div>
       <strong
-      >{{ activeOverlay?.label }} <span>{{ activeOverlay?.unit }}</span></strong
+      >{{ activeOverlay?.label ?? '无叠加层' }} <span>{{ activeOverlay?.unit }}</span></strong
       >
       <div class="earth-legend" :style="legendStyle" />
       <div class="earth-legend-labels mono">
-        <span v-for="tick in legendTicks" :key="tick">{{ tick }}</span>
+        <span v-for="(tick, index) in legendTicks" :key="index">{{ tick }}</span>
       </div>
-      <p v-if="fieldMetadata">
-        {{ fieldMetadata.resolution }}° 全球网格 · {{ fieldMetadata.level }}
-      </p>
+      <p v-if="fieldMetadata">{{ gridLabel }} · {{ fieldMetadata.level }}</p>
       <p>{{ fieldSource }}</p>
       <p v-if="isPm25">对数色阶 · 蓝色低浓度 → 黄红色高浓度</p>
       <p v-if="dataset === 'real'">色层有效时间 {{ formatTime(sampledTime) }} · 离线预报</p>
-      <p v-if="isPm25 && vectorId">流线：GFS 10 m 风 · 共享预报时刻</p>
-      <p>拖动旋转 · 滚轮缩放 · 点击固定点查</p>
+      <p v-if="activeVector">
+        动画：{{ activeVector.label }} · {{ activeVector.metadata?.source }}
+      </p>
+      <p v-if="vectorTime">动画有效时间 {{ formatTime(vectorTime) }}</p>
+      <p v-if="frameTimes.length === 1">本图层仅收录 1 帧；可切换其他叠加层。</p>
+      <p>UTC+8 · 离线快照，不代表实时观测</p>
+      <p v-if="fieldMetadata?.publishedAt">
+        发布时间 {{ formatTime(new Date(fieldMetadata.publishedAt)) }}
+      </p>
+      <p v-if="actualSampledTime">实际显示 {{ formatTime(actualSampledTime) }}</p>
+      <el-button size="small" :disabled="busy" @click="retryLayers">重新加载</el-button>
+      <details class="earth-diagnostics">
+        <summary>加载详情</summary>
+        <p>缓存 {{ (cacheStats.bytes / 1048576).toFixed(1) }} / 128 MiB</p>
+        <p v-for="item in diagnostics.slice(-6)" :key="item.key">
+          {{ item.key }} · {{ item.status }} ·
+          {{ item.cacheHit ? '缓存命中' : `${item.durationMs.toFixed(0)} ms` }} {{ item.error }}
+        </p>
+      </details>
     </aside>
 
-    <aside v-if="readout" class="earth-readout-card">
+    <aside v-if="probe" class="earth-readout-card">
       <div class="earth-data-kicker">
         {{ probe ? '固定点查' : '鼠标采样' }}
         <button v-if="probe" type="button" aria-label="取消固定点查" @click="clearProbe">×</button>
       </div>
       <div class="mono">
-        {{ Math.abs(readout.lat).toFixed(2) }}°{{ readout.lat >= 0 ? 'N' : 'S' }} ·
-        {{ Math.abs(readout.lon).toFixed(2) }}°{{ readout.lon >= 0 ? 'E' : 'W' }}
+        {{ Math.abs(probe.lat).toFixed(2) }}°{{ probe.lat >= 0 ? 'N' : 'S' }} ·
+        {{ Math.abs(probe.lon).toFixed(2) }}°{{ probe.lon >= 0 ? 'E' : 'W' }}
       </div>
-      <div v-if="readout.vector" class="earth-wind-value">
-        <span
-          class="earth-direction"
-          :style="{ transform: `rotate(${readout.vector.direction}deg)` }"
+      <div v-if="probe?.vector" class="earth-wind-value">
+        <span class="earth-direction" :style="{ transform: `rotate(${probe.vector.direction}deg)` }"
         >↑</span
         >
-        {{ readout.vector.speed.toFixed(1) }} <small>{{ readout.vector.unit }}</small>
+        {{ probe.vector.speed.toFixed(1) }} <small>{{ probe.vector.unit }}</small>
       </div>
-      <div v-if="readout.vector" class="earth-meta">
-        去向 {{ Math.round(readout.vector.direction) }}° · 来向
-        {{ Math.round((readout.vector.direction + 180) % 360) }}°
+      <div v-if="probe?.vector" class="earth-meta">
+        {{
+          activeVector?.kind === 'waves'
+            ? '波向与周期（非风速）'
+            : activeVector?.kind === 'currents'
+              ? '海流速度（非风速）'
+              : '风速'
+        }}
+        · 去向 {{ Math.round(probe.vector.direction) }}° · 来向
+        {{ Math.round((probe.vector.direction + 180) % 360) }}°
       </div>
-      <div v-if="readout.overlay" class="earth-meta">
-        {{ activeOverlay?.label }} {{ formatNumber(readout.overlay.value) }}
-        {{ readout.overlay.unit }}
+      <div v-if="probe?.overlay" class="earth-meta">
+        {{ activeOverlay?.label }} {{ formatNumber(probe.overlay.value) }}
+        {{ probe.overlay.unit }}
+        <span v-if="activeOverlay?.categories">
+          · {{ activeOverlay.categories[Math.round(probe.overlay.value)] }}</span
+        >
       </div>
+      <el-button size="small" @click="showAnalysis"> 查看时间曲线 </el-button>
     </aside>
 
+    <aside
+      v-if="!probe && controlsOpen && activeDrawer === 'points'"
+      class="earth-readout-card earth-empty-point"
+    >
+      点击地图固定一个点位，可查看数值与时间曲线。
+    </aside>
+    <div v-if="hoveredProbe && !probe" class="earth-hover-readout">
+      {{ hoveredProbe.lon.toFixed(2) }}°, {{ hoveredProbe.lat.toFixed(2) }}° ·
+      {{ hoveredProbe.overlay?.value.toFixed(1) ?? hoveredProbe.vector?.speed.toFixed(1) ?? '-' }}
+      {{ hoveredProbe.overlay?.unit ?? hoveredProbe.vector?.unit }}
+    </div>
+    <div v-if="!controlsOpen && settings.infoBar && activeOverlay" class="earth-mini-legend">
+      <button type="button" aria-label="关闭图例" @click="settings.infoBar = false">×</button>
+      {{ activeOverlay.label }} · {{ activeOverlay.unit }}
+      <div class="earth-legend" :style="legendStyle" />
+      <span>{{ activeOverlay.min }} — {{ activeOverlay.max }}</span>
+    </div>
+    <nav class="earth-mobile-tabs" aria-label="地球抽屉">
+      <button
+        v-for="tab in [
+          { id: 'layers', label: '图层' },
+          { id: 'points', label: '点查' },
+          { id: 'data', label: '数据' },
+          { id: 'analysis', label: '分析' }
+        ]"
+        :key="tab.id"
+        type="button"
+        :aria-expanded="controlsOpen && activeDrawer === tab.id"
+        @click="openDrawer(tab.id)"
+      >
+        {{ tab.label }}
+      </button>
+    </nav>
     <div class="earth-hud earth-hud-bottom">
       <div class="earth-play-control">
         <button
           type="button"
           class="earth-menu-toggle"
           :aria-expanded="controlsOpen"
-          @click="controlsOpen = !controlsOpen"
+          @click="openDrawer(activeDrawer)"
         >
           earth <span>{{ controlsOpen ? '−' : '+' }}</span>
         </button>
@@ -1018,39 +1587,55 @@ onBeforeUnmount(() => {
           type="button"
           class="earth-step"
           aria-label="上一预报时刻"
-          :disabled="!frameTimes.length"
+          :disabled="frameTimes.length < 2"
           @click="stepFrame(-1)"
         >
           ‹
         </button>
-        <el-button :icon="VideoPlay" circle text title="播放时间" @click="onPlay" />
-        <el-button :icon="VideoPause" circle text title="暂停时间" @click="onPause" />
+        <el-button
+          :icon="VideoPlay"
+          :disabled="frameTimes.length < 2"
+          circle
+          text
+          title="播放时间"
+          aria-label="播放时间"
+          @click="onPlay"
+        />
+        <el-button
+          :icon="VideoPause"
+          circle
+          text
+          title="暂停时间"
+          aria-label="暂停时间"
+          @click="onPause"
+        />
         <button
           type="button"
           class="earth-step"
           aria-label="下一预报时刻"
-          :disabled="!frameTimes.length"
+          :disabled="frameTimes.length < 2"
           @click="stepFrame(1)"
         >
           ›
         </button>
       </div>
       <div class="earth-timeline">
-        <div class="earth-timeline-label mono">{{ formatTime(manifest?.range.start) }}</div>
+        <div class="earth-timeline-label mono">{{ formatTime(fieldRange?.start) }}</div>
         <input
           class="earth-range"
           type="range"
           min="0"
           max="100"
+          :disabled="frameTimes.length < 2"
           step="0.1"
           :value="timelineValue"
           aria-label="时间轴"
           @input="onTimelineInput(($event.target as HTMLInputElement).value)"
         />
-        <div class="earth-timeline-label mono">{{ formatTime(manifest?.range.end) }}</div>
+        <div class="earth-timeline-label mono">{{ formatTime(fieldRange?.end) }}</div>
       </div>
       <div class="earth-current-readout mono">
-        <span>{{ formatTime(currentTime) }}</span>
+        <span>{{ formatTime(currentTime) }} UTC+8</span>
         <span v-if="probe">{{ probe.lon.toFixed(1) }}°, {{ probe.lat.toFixed(1) }}°</span>
       </div>
     </div>
@@ -1063,6 +1648,85 @@ onBeforeUnmount(() => {
   inset: 0;
   z-index: 30;
   pointer-events: none;
+}
+
+.earth-catalog {
+  position: absolute;
+  pointer-events: auto;
+  left: 20px;
+  bottom: 84px;
+  width: min(620px, calc(100vw - 350px));
+  max-height: 44vh;
+  overflow: auto;
+  color: #dce5ee;
+  background: #080e15ed;
+  backdrop-filter: blur(14px);
+  border: 1px solid #ffffff26;
+  border-radius: 7px;
+  font-size: 12px;
+}
+.earth-catalog-heading {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+  color: #b7ebde;
+  padding: 12px 14px;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+}
+.earth-catalog-heading small {
+  color: #8fa4b3;
+  margin-left: 8px;
+}
+.earth-catalog-content {
+  padding: 0 12px 8px;
+}
+.earth-catalog-row {
+  display: flex;
+  gap: 12px;
+  border-top: 1px solid #ffffff0d;
+  padding: 8px 0;
+}
+.earth-catalog-label {
+  width: 40px;
+  flex: 0 0 40px;
+  color: #78929f;
+  padding-top: 5px;
+}
+.earth-catalog-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+.earth-catalog-options button {
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  color: #a8bdc9;
+  font: inherit;
+  padding: 4px 7px;
+  cursor: pointer;
+}
+.earth-catalog-options button[aria-pressed='true'] {
+  color: #d1fff0;
+  border-color: #57c8a75e;
+  background: #3cb59424;
+}
+.earth-catalog-options button:hover {
+  color: white;
+  background: #ffffff12;
+}
+.earth-catalog-options button:disabled {
+  opacity: 0.5;
+  cursor: wait;
+}
+.earth-catalog-note {
+  margin: 6px 0;
+  color: #6b8695;
+  font-size: 10px;
 }
 
 .earth-panel {
@@ -1557,67 +2221,296 @@ onBeforeUnmount(() => {
   font-size: 11px;
 }
 
+.earth-sidebar-tabs {
+  pointer-events: auto;
+  position: absolute;
+  top: 120px;
+  left: 20px;
+  width: 350px;
+  max-width: calc(100% - 40px);
+  display: flex;
+  gap: 5px;
+  padding: 7px;
+  background: #111827f5;
+  border: 1px solid #ffffff26;
+  border-radius: 8px 8px 0 0;
+}
+.earth-sidebar-tabs button {
+  border: 0;
+  background: transparent;
+  color: #cbd5e1;
+  padding: 6px 12px;
+  cursor: pointer;
+}
+.earth-sidebar-tabs button[aria-pressed='true'] {
+  background: #3cb59424;
+  color: #b7ebde;
+  border-radius: 4px;
+}
+.earth-sidebar-tabs button:last-child {
+  margin-left: auto;
+}
+.earth-panel,
+.earth-catalog,
+.earth-analysis-panel {
+  top: 163px;
+  left: 20px;
+  bottom: 84px;
+  width: 350px;
+  max-width: calc(100% - 40px);
+  max-height: none;
+  border-radius: 0 0 8px 8px;
+}
+.earth-catalog {
+  font-size: 12px;
+}
+.earth-analysis-panel {
+  position: absolute;
+  pointer-events: auto;
+  padding: 14px;
+  overflow: auto;
+  background: #080e15ed;
+  border: 1px solid #ffffff26;
+}
+.earth-data-card {
+  max-height: calc((100% - 228px) / 2);
+  overflow: auto;
+}
+.earth-readout-card {
+  top: 120px;
+  max-height: calc((100% - 228px) / 2);
+  overflow: auto;
+}
+.earth-diagnostics {
+  margin-top: 10px;
+  overflow-wrap: anywhere;
+}
+.earth-save-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-bottom: 12px;
+}
+.earth-save-actions :deep(.el-button) {
+  margin: 0;
+}
+.earth-hover-readout {
+  position: absolute;
+  top: 114px;
+  left: 50%;
+  transform: translateX(-50%);
+  color: #b7ebde;
+  background: #080e15bb;
+  padding: 5px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  pointer-events: none;
+  white-space: nowrap;
+}
+.earth-mobile-tabs,
+.earth-mini-legend {
+  display: none;
+}
+.earth-global-status {
+  position: absolute;
+  top: 170px;
+  left: 50%;
+  transform: translateX(-50%);
+  max-width: 80%;
+  pointer-events: auto;
+  padding: 12px;
+  border-radius: 8px;
+  background: #111827ed;
+  color: #e5e7eb;
+  font-size: 12px;
+}
+.earth-global-status button {
+  margin-left: 8px;
+}
+.earth-mode-chip:disabled {
+  opacity: 0.5;
+  cursor: wait;
+}
+.earth-hud-bottom {
+  bottom: calc(12px + env(safe-area-inset-bottom));
+}
+.earth-current-readout {
+  white-space: nowrap;
+}
+@media (min-width: 721px) and (max-width: 900px) {
+  .earth-timeline-label {
+    display: none;
+  }
+  .earth-panel,
+  .earth-catalog,
+  .earth-sidebar-tabs,
+  .earth-analysis-panel {
+    width: 320px;
+  }
+}
 @media (max-width: 720px) {
-  .earth-panel-wrap {
-    inset: 0;
+  .earth-mini-legend {
+    display: block;
+    position: absolute;
+    pointer-events: auto;
+    bottom: calc(143px + env(safe-area-inset-bottom));
+    right: 12px;
+    width: 155px;
+    padding: 8px;
+    background: #080e15d9;
+    color: #cbd5e1;
+    border-radius: 6px;
+    font-size: 10px;
   }
-
-  .earth-panel {
-    top: 118px;
-    left: 12px;
-    bottom: 78px;
-    width: min(440px, calc(100vw - 24px));
+  .earth-mini-legend .earth-legend {
+    height: 5px;
+    margin: 5px 0;
   }
-
-  .earth-hud-top,
-  .earth-hud-bottom {
+  .earth-mini-legend button {
+    float: right;
+    color: #cbd5e1;
+    border: 0;
+    background: none;
+    cursor: pointer;
+  }
+  .earth-hud-top {
+    top: max(8px, env(safe-area-inset-top));
     left: 12px;
     right: 12px;
   }
-
+  .earth-brand-mark {
+    letter-spacing: 0.6px;
+    font-size: 11px;
+  }
   .earth-hud-status {
     display: none;
   }
-
   .earth-mode-strip {
-    top: 70px;
+    top: 60px;
     left: 12px;
     right: 12px;
     max-width: none;
   }
-  .earth-data-card {
-    width: 200px;
+  .earth-mobile-tabs {
+    position: absolute;
+    bottom: calc(96px + env(safe-area-inset-bottom));
+    left: 12px;
     right: 12px;
-    bottom: 82px;
-    padding: 12px;
+    display: flex;
+    pointer-events: auto;
+    background: #111827ed;
+    border: 1px solid #ffffff26;
+    border-radius: 6px;
   }
-  .earth-readout-card {
-    top: 120px;
+  .earth-mobile-tabs button {
+    flex: 1;
+    border: 0;
+    background: transparent;
+    color: #cbd5e1;
+    padding: 9px 0;
+    cursor: pointer;
+  }
+  .earth-mobile-tabs button[aria-expanded='true'] {
+    color: #b7ebde;
+    background: #3cb59424;
+  }
+  .earth-panel,
+  .earth-catalog,
+  .earth-analysis-panel {
+    top: auto;
+    left: 12px;
     right: 12px;
-    width: 200px;
-    padding: 12px;
+    bottom: calc(136px + env(safe-area-inset-bottom));
+    width: auto;
+    max-width: none;
+    height: min(48dvh, 420px);
+    max-height: none;
+    z-index: 5;
+  }
+  .earth-sidebar-tabs {
+    top: auto;
+    left: 12px;
+    right: 12px;
+    bottom: calc(136px + env(safe-area-inset-bottom) + min(48dvh, 420px));
+    width: auto;
+    max-width: none;
+    z-index: 5;
+  }
+  .earth-data-card,
+  .earth-readout-card {
+    display: none;
+  }
+  .drawer-open.drawer-data .earth-data-card,
+  .drawer-open.drawer-points .earth-readout-card {
+    display: block;
+    top: auto;
+    left: 12px;
+    right: 12px;
+    width: auto;
+    bottom: calc(136px + env(safe-area-inset-bottom));
+    max-height: 48dvh;
+    z-index: 5;
+    overflow: auto;
+  }
+  .earth-hud-bottom {
+    left: 12px;
+    right: 12px;
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 4px 10px;
+    padding: 6px 10px;
+    height: 78px;
+  }
+  .earth-play-control {
+    grid-column: 1;
+    align-items: center;
+  }
+  .earth-current-readout {
+    grid-row: 1;
+    grid-column: 2;
+    min-width: 0;
+    max-width: none;
+    align-items: flex-end;
+    font-size: 10px;
+  }
+  .earth-timeline {
+    grid-row: 2;
+    grid-column: 1 / -1;
+    min-width: 0;
   }
   .earth-timeline-label {
     display: none;
   }
-  .earth-current-readout {
-    min-width: 105px;
-  }
-  .earth-hud-bottom {
-    gap: 6px;
-    padding: 5px 8px;
-  }
-  .earth-play-control {
-    align-items: center;
-  }
   .earth-menu-toggle {
-    font-size: 18px;
+    font-size: 16px;
     margin-right: 4px;
   }
   .earth-play-control :deep(.el-button) {
     width: 26px;
     height: 26px;
     margin-left: 0;
+  }
+  .earth-hover-readout {
+    top: 104px;
+    max-width: calc(100% - 24px);
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .earth-catalog-heading small {
+    display: none;
+  }
+}
+@media (max-height: 450px) and (max-width: 900px) {
+  .earth-panel,
+  .earth-catalog,
+  .earth-analysis-panel {
+    top: 124px;
+    bottom: 84px;
+    height: auto;
+  }
+  .earth-sidebar-tabs {
+    top: 90px;
+    bottom: auto;
   }
 }
 </style>

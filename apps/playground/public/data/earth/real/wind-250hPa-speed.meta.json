@@ -1,0 +1,1 @@
+{"format":"earth-scalar-f32-v1","legend":{"min":0,"max":70,"unit":"m/s","colors":["#0a1944","#0a19fa","#18ff5d","#ffe966","#ff0f0f"]},"frames":[{"width":721,"height":361,"bounds":{"west":-180,"east":180,"south":-90,"north":90},"noData":-9999,"time":"2026-10-27T07:00:00.000Z","binary":"wind-250hPa-speed-0.f32.gz"}]}

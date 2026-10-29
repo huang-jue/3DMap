@@ -1,3 +1,4 @@
+import { RasterRenderer } from './RasterRenderer'
 import * as Cesium from 'cesium'
 import { sampleRasterValue, nearestItem } from '../data/time'
 import { toCesiumColor, sampleRamp, toCssColor } from '../shared/color'
@@ -23,15 +24,6 @@ export interface EarthScalarLayerOptions {
   onError?: (error: unknown) => void
 }
 
-interface RenderCache {
-  bilinear?: string
-  nearest?: string
-}
-
-function valueAt(values: Float32Array | number[], index: number): number {
-  return Number(values[index] ?? 0)
-}
-
 function normalize(value: number, min: number, max: number, scale: 'linear' | 'log'): number {
   if (scale === 'log') {
     const safeMin = Math.max(0.0001, min)
@@ -50,13 +42,17 @@ export class EarthScalarLayer {
   private layer: Cesium.ImageryLayer | null = null
   private frame: EarthScalarFrame
   private readonly colors: Cesium.Color[]
+  private readonly colorTable = new Uint8ClampedArray(4096 * 4)
   private readonly min: number
   private readonly max: number
   private readonly noData?: number
   private readonly crossfade: boolean
   private readonly crossfadeDuration: number
   private readonly onError?: (error: unknown) => void
-  private readonly cache = new WeakMap<EarthScalarFrame, RenderCache>()
+  private readonly renderer = new RasterRenderer()
+  private readonly cache = new Map<string, string>()
+  private readonly frameIds = new WeakMap<EarthScalarFrame, number>()
+  private nextFrameId = 0
   private readonly fading = new Set<Cesium.ImageryLayer>()
   private animation: number | null = null
   private interpolation: EarthInterpolation
@@ -67,6 +63,7 @@ export class EarthScalarLayer {
   private added = false
   private destroyed = false
   private sequence = 0
+  private rendered = false
 
   constructor(
     private readonly viewer: Cesium.Viewer,
@@ -79,6 +76,13 @@ export class EarthScalarLayer {
     this.visible = options.visible ?? true
     this.alphaValue = Math.min(1, Math.max(0, options.alpha ?? 0.82))
     this.colors = (options.colors ?? data.legend.colors).map(toCesiumColor)
+    for (let i = 0; i < 4096; i++) {
+      const color = sampleRamp(this.colors, i / 4095)
+      this.colorTable.set(
+        [color.red * 255, color.green * 255, color.blue * 255, color.alpha * 255],
+        i * 4
+      )
+    }
     this.min = options.min ?? data.legend.min
     this.max = options.max ?? data.legend.max
     this.noData = options.noData
@@ -116,6 +120,9 @@ export class EarthScalarLayer {
   get currentFrame(): EarthScalarFrame {
     return this.frame
   }
+  get displayedFrame(): EarthScalarFrame | null {
+    return this.rendered ? this.frame : null
+  }
 
   get legend(): EarthLegend {
     return {
@@ -134,8 +141,10 @@ export class EarthScalarLayer {
 
   updateFrame(frame: EarthScalarFrame): void {
     if (this.destroyed) return
-    this.frame = frame
-    if (!this.added) return
+    if (!this.added) {
+      this.frame = frame
+      return
+    }
     void this.applyFrame(frame)
   }
 
@@ -168,6 +177,9 @@ export class EarthScalarLayer {
     this.destroyed = true
     this.added = false
     this.cancelAnimation()
+    this.renderer.destroy()
+    this.cache.forEach((url) => URL.revokeObjectURL(url))
+    this.cache.clear()
     this.removeLayer(this.layer)
     this.layer = null
   }
@@ -181,7 +193,11 @@ export class EarthScalarLayer {
     try {
       await Promise.resolve()
       if (sequence !== this.sequence || this.destroyed || this.viewer.isDestroyed()) return
-      const next = this.createLayer(frame, force)
+      const url = await this.dataUrl(frame, force)
+      if (sequence !== this.sequence || this.destroyed || this.viewer.isDestroyed()) return
+      const next = this.createLayer(frame, url)
+      this.frame = frame
+      this.rendered = true
       const previous = this.layer
       this.layer = next
       if (!previous) {
@@ -196,14 +212,14 @@ export class EarthScalarLayer {
       next.alpha = 0
       this.animateCrossfade(previous, next)
     } catch (error) {
-      this.onError?.(error)
+      if (!this.destroyed && sequence === this.sequence) this.onError?.(error)
     }
   }
 
-  private createLayer(frame: EarthScalarFrame, force = false): Cesium.ImageryLayer {
+  private createLayer(frame: EarthScalarFrame, url: string): Cesium.ImageryLayer {
     const bounds = frame.bounds
     const provider = new Cesium.SingleTileImageryProvider({
-      url: this.dataUrl(frame, force),
+      url,
       rectangle: Cesium.Rectangle.fromDegrees(bounds.west, bounds.south, bounds.east, bounds.north),
       tileWidth: this.tileSize(frame).width,
       tileHeight: this.tileSize(frame).height
@@ -271,58 +287,45 @@ export class EarthScalarLayer {
     return { width: frame.width * scale, height: frame.height * scale }
   }
 
-  private dataUrl(frame: EarthScalarFrame, force = false): string {
-    let cached = this.cache.get(frame)
-    if (!cached) {
-      cached = {}
-      this.cache.set(frame, cached)
+  private async dataUrl(frame: EarthScalarFrame, force = false): Promise<string> {
+    let id = this.frameIds.get(frame)
+    if (id === undefined) {
+      id = ++this.nextFrameId
+      this.frameIds.set(frame, id)
     }
-    const key = this.interpolation
-    const existing = cached[key]
-    if (existing && !force) return existing
-    if (typeof document === 'undefined') {
-      throw new Error('@sgyx/cesium-kit-earth: 当前环境没有 document')
-    }
-    const { width, height, values, noData } = frame
-    const source = document.createElement('canvas')
-    source.width = width
-    source.height = height
-    const context = source.getContext('2d')
-    if (!context) throw new Error('@sgyx/cesium-kit-earth: Canvas 2D 不可用')
-    const image = context.createImageData(width, height)
-    for (let y = 0; y < height; y += 1) {
-      for (let x = 0; x < width; x += 1) {
-        const value = valueAt(values, y * width + x)
-        const index = ((height - 1 - y) * width + x) * 4
-        if (
-          !Number.isFinite(value) ||
-          (noData !== undefined && value === noData) ||
-          (this.noData !== undefined && value === this.noData)
-        ) {
-          image.data[index + 3] = 0
-          continue
-        }
-        const color = sampleRamp(this.colors, normalize(value, this.min, this.max, this.scale))
-        image.data[index] = Math.round(color.red * 255)
-        image.data[index + 1] = Math.round(color.green * 255)
-        image.data[index + 2] = Math.round(color.blue * 255)
-        image.data[index + 3] = Math.round(color.alpha * 255)
-      }
-    }
-    context.putImageData(image, 0, 0)
     const size = this.tileSize(frame)
-    if (size.width === width && size.height === height) {
-      return source.toDataURL('image/png')
+    const key = `${id}:${this.interpolation}:${size.width}:${size.height}`
+    const cached = this.cache.get(key)
+    if (cached && !force) {
+      this.cache.delete(key)
+      this.cache.set(key, cached)
+      return cached
     }
-    const target = document.createElement('canvas')
-    target.width = size.width
-    target.height = size.height
-    const targetContext = target.getContext('2d')
-    if (!targetContext) throw new Error('@sgyx/cesium-kit-earth: Canvas 2D 不可用')
-    targetContext.imageSmoothingEnabled = this.interpolation === 'bilinear'
-    targetContext.drawImage(source, 0, 0, target.width, target.height)
-    const url = target.toDataURL('image/png')
-    cached[key] = url
+    const url = await this.renderer.render({
+      width: frame.width,
+      height: frame.height,
+      targetWidth: size.width,
+      targetHeight: size.height,
+      values: frame.values,
+      colors: this.colorTable,
+      min: this.min,
+      max: this.max,
+      noData: frame.noData,
+      extraNoData: this.noData,
+      log: this.scale === 'log',
+      smooth: this.interpolation === 'bilinear'
+    })
+    if (this.destroyed) {
+      URL.revokeObjectURL(url)
+      throw new DOMException('已取消', 'AbortError')
+    }
+    if (cached) URL.revokeObjectURL(cached)
+    this.cache.set(key, url)
+    while (this.cache.size > 3) {
+      const first = this.cache.keys().next().value!
+      URL.revokeObjectURL(this.cache.get(first)!)
+      this.cache.delete(first)
+    }
     return url
   }
 

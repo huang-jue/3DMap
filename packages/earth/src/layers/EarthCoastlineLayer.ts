@@ -1,10 +1,9 @@
 import * as Cesium from 'cesium'
+import { sharedDataRepository, type DataRequestOptions } from '@sgyx/cesium-kit-core'
 
 /** Raster coastlines give geographic context without thousands of pickable entities. */
-export async function loadEarthCoastline(url: string): Promise<Cesium.SingleTileImageryProvider> {
-  const response = await fetch(url)
-  if (!response.ok) throw new Error(`Coastline ${response.status}`)
-  const lines: number[][][] = await response.json()
+export async function loadEarthCoastline(url: string, options: DataRequestOptions = {}): Promise<Cesium.SingleTileImageryProvider> {
+  const lines = await sharedDataRepository.json(url, options) as number[][][]
   if (!Array.isArray(lines)) throw new Error('Invalid coastline')
   const canvas = document.createElement('canvas')
   canvas.width = 2048

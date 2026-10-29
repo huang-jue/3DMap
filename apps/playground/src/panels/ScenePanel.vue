@@ -136,20 +136,24 @@ function onAtmosphere(value: boolean) {
       <span class="divider-text">相机</span>
     </el-divider>
 
-    <el-descriptions :column="1" size="small" border>
-      <el-descriptions-item label="经度">
-        {{ (props.view?.lon ?? 0).toFixed(5) }}°
-      </el-descriptions-item>
-      <el-descriptions-item label="纬度">
-        {{ (props.view?.lat ?? 0).toFixed(5) }}°
-      </el-descriptions-item>
-      <el-descriptions-item label="高度">
-        {{ Math.round(props.view?.height ?? 0).toLocaleString() }} m
-      </el-descriptions-item>
-      <el-descriptions-item label="俯仰">
-        {{ (props.view?.pitch ?? 0).toFixed(1) }}°
-      </el-descriptions-item>
-    </el-descriptions>
+    <dl class="camera-readout" aria-label="相机信息">
+      <div class="camera-readout-row">
+        <dt>经度</dt>
+        <dd>{{ props.view ? props.view.lon.toFixed(5) + '°' : '—' }}</dd>
+      </div>
+      <div class="camera-readout-row">
+        <dt>纬度</dt>
+        <dd>{{ props.view ? props.view.lat.toFixed(5) + '°' : '—' }}</dd>
+      </div>
+      <div class="camera-readout-row">
+        <dt>高度</dt>
+        <dd>{{ props.view ? Math.round(props.view.height).toLocaleString() + ' m' : '—' }}</dd>
+      </div>
+      <div class="camera-readout-row">
+        <dt>俯仰</dt>
+        <dd>{{ props.view ? props.view.pitch.toFixed(1) + '°' : '—' }}</dd>
+      </div>
+    </dl>
 
     <div class="actions">
       <el-button-group size="small">
@@ -163,5 +167,39 @@ function onAtmosphere(value: boolean) {
 <style scoped>
 .actions {
   margin-top: 12px;
+}
+.camera-readout {
+  display: grid;
+  gap: 0;
+  margin: 0;
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  border-radius: 8px;
+  overflow: hidden;
+  background: rgba(15, 23, 42, 0.5);
+}
+.camera-readout-row {
+  display: grid;
+  grid-template-columns: 72px minmax(0, 1fr);
+  align-items: center;
+  min-height: 36px;
+}
+.camera-readout-row + .camera-readout-row {
+  border-top: 1px solid rgba(148, 163, 184, 0.14);
+}
+.camera-readout dt,
+.camera-readout dd {
+  min-width: 0;
+  margin: 0;
+  padding: 7px 12px;
+  background: transparent;
+}
+.camera-readout dt {
+  color: #9ca3af;
+  font-weight: 500;
+}
+.camera-readout dd {
+  color: #f1f5f9;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
 }
 </style>

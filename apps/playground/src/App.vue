@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { reactive, ref, watch } from 'vue'
+import { defineAsyncComponent, nextTick, reactive, ref, watch } from 'vue'
 import { Aim, Expand, Fold, MapLocation } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import { CesiumViewer } from '@sgyx/cesium-kit-vue'
@@ -10,14 +10,17 @@ import type {
   SceneModeName
 } from '@sgyx/cesium-kit-core'
 import { markersFeature } from './features/markersFeature'
+import WorkbenchSection from './components/WorkbenchSection.vue'
 import ScenePanel from './panels/ScenePanel.vue'
 import TimePanel from './panels/TimePanel.vue'
 import LayerPanel from './panels/LayerPanel.vue'
 import LayerTreePanel from './panels/LayerTreePanel.vue'
 import DrawPanel from './panels/DrawPanel.vue'
 import MarkerPanel from './panels/MarkerPanel.vue'
-import FloodPanel from './panels/FloodPanel.vue'
+const FloodPanel = defineAsyncComponent(() => import('./panels/FloodPanel.vue'))
 import EarthPanel from './panels/EarthPanel.vue'
+import type { EarthWorkspaceState } from './panels/earthUtils'
+import { isEarthRoute } from './panels/earthRoute'
 import PersistencePanel from './panels/PersistencePanel.vue'
 import SelectionPanel from './panels/SelectionPanel.vue'
 import PickOverlay from './panels/PickOverlay.vue'
@@ -36,11 +39,9 @@ const mapRef = ref<CesiumViewerExposed | null>(null)
 const baseLayer = ref('naturalEarth')
 const sceneMode = ref<SceneModeName>('3D')
 const pluginEnabled = ref(false)
-const panelOpen = ref(true)
-const earthMode = ref(
-  new URLSearchParams(window.location.search).get('earth') === 'pm25' ||
-    window.location.hash.includes('particulates')
-)
+const panelOpen = ref(!window.matchMedia('(max-width: 720px)').matches)
+const earthPanelRef = ref<InstanceType<typeof EarthPanel> | null>(null)
+const earthMode = ref(isEarthRoute(window.location))
 const camera = reactive<CameraView>({
   lon: 0,
   lat: 0,
@@ -73,6 +74,22 @@ function onScreenshotError(message: string) {
 }
 
 function onReady(manager: CesiumViewerManager) {
+  manager.snapshots.registerExtension('earth-workspace', {
+    capture: () => (earthMode.value ? earthPanelRef.value?.captureWorkspace() : null),
+    async restore(state) {
+      if (!state) {
+        earthMode.value = false
+        await nextTick()
+        return
+      }
+      earthMode.value = true
+      await nextTick()
+      await earthPanelRef.value?.restoreWorkspace(state as EarthWorkspaceState)
+    },
+    afterRestore(state) {
+      if (state) earthPanelRef.value?.finishRestore(state as EarthWorkspaceState)
+    }
+  })
   if (import.meta.env.DEV) {
     ;(window as unknown as Record<string, unknown>).__cesiumKit = manager
   }
@@ -134,29 +151,33 @@ watch(pluginEnabled, async (enabled) => {
               size="small"
               text
               :title="panelOpen ? '收起工作台' : '展开工作台'"
+              :aria-label="panelOpen ? '收起工作台' : '展开工作台'"
+              :aria-expanded="panelOpen"
               @click="panelOpen = !panelOpen"
             />
           </div>
           <div v-show="panelOpen" class="panel-scroll">
-            <ScenePanel
-              v-model:base-layer="baseLayer"
-              v-model:scene-mode="sceneMode"
-              v-model:plugin-enabled="pluginEnabled"
-              :view="camera"
-              @share="shareView"
-              @screenshot-error="onScreenshotError"
-            />
-            <TimePanel />
-            <DrawPanel />
-            <PersistencePanel />
-            <SelectionPanel />
-            <LayerPanel />
-            <LayerTreePanel />
-            <MarkerPanel />
-            <FloodPanel />
+            <WorkbenchSection title="场景设置" initial-open>
+              <ScenePanel
+                v-model:base-layer="baseLayer"
+                v-model:scene-mode="sceneMode"
+                v-model:plugin-enabled="pluginEnabled"
+                :view="camera"
+                @share="shareView"
+                @screenshot-error="onScreenshotError"
+              />
+            </WorkbenchSection>
+            <WorkbenchSection title="时间轴"><TimePanel /></WorkbenchSection>
+            <WorkbenchSection title="绘制与量算"><DrawPanel /></WorkbenchSection>
+            <WorkbenchSection title="成果与场景"><PersistencePanel /></WorkbenchSection>
+            <WorkbenchSection title="要素属性"><SelectionPanel /></WorkbenchSection>
+            <WorkbenchSection title="数据加载"><LayerPanel /></WorkbenchSection>
+            <WorkbenchSection title="图层管理"><LayerTreePanel /></WorkbenchSection>
+            <WorkbenchSection title="标注与聚合"><MarkerPanel /></WorkbenchSection>
+            <WorkbenchSection title="水旱灾害防御"><FloodPanel /></WorkbenchSection>
           </div>
         </div>
-        <EarthPanel v-if="earthMode" @close="earthMode = false" />
+        <EarthPanel v-if="earthMode" ref="earthPanelRef" @close="earthMode = false" />
         <PickOverlay v-if="!earthMode" />
       </CesiumViewer>
     </main>
@@ -168,6 +189,7 @@ watch(pluginEnabled, async (enabled) => {
   display: flex;
   flex-direction: column;
   height: 100vh;
+  height: 100dvh;
   background: #0b1020;
 }
 
@@ -175,7 +197,10 @@ watch(pluginEnabled, async (enabled) => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  height: 56px;
+  min-height: 56px;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+  gap: 8px;
   padding: 0 20px;
   background: #111827;
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
@@ -202,7 +227,7 @@ watch(pluginEnabled, async (enabled) => {
   position: absolute;
   top: 16px;
   left: 16px;
-  bottom: 16px;
+  bottom: 60px;
   z-index: 20;
   display: flex;
   flex-direction: column;
@@ -270,11 +295,28 @@ watch(pluginEnabled, async (enabled) => {
 }
 
 @media (max-width: 720px) {
+  .header {
+    padding: 8px 12px;
+  }
+  .actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .actions :deep(.el-button + .el-button) {
+    margin-left: 0;
+  }
   .workbench {
-    top: 12px;
+    top: auto;
     left: 12px;
-    bottom: 12px;
-    width: min(420px, calc(100vw - 24px));
+    right: 12px;
+    bottom: calc(52px + env(safe-area-inset-bottom));
+    width: auto;
+    max-width: none;
+    max-height: 55%;
+  }
+  .workbench.collapsed {
+    right: auto;
   }
 }
 </style>

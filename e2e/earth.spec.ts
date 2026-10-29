@@ -7,13 +7,24 @@ async function enterEarth(page: Page) {
   await expect
     .poll(async () => (await readState(page)).features, { timeout: 40_000 })
     .toContain('earth-plugin')
+  if (page.viewportSize()!.width <= 720) {
+    await page.locator('.earth-mobile-tabs').getByRole('button', { name: '数据' }).click()
+  }
   await expect(page.locator('.earth-data-card')).toBeVisible({ timeout: 60_000 })
   await expect(page.locator('.earth-wind-trails')).toBeVisible()
+  await page.keyboard.press('Escape')
 }
 
 async function openControls(page: Page) {
-  if (!(await page.locator('.earth-panel').isVisible()))
-    await page.getByRole('button', { name: '切换控制面板' }).click()
+  if (!(await page.locator('.earth-sidebar-tabs').isVisible())) {
+    if (page.viewportSize()!.width <= 720)
+      await page.locator('.earth-mobile-tabs').getByRole('button', { name: '图层' }).click()
+    else await page.getByRole('button', { name: '切换控制面板' }).click()
+  }
+  await page
+    .locator('.earth-sidebar-tabs')
+    .getByRole('button', { name: '设置', exact: true })
+    .click()
   await expect(page.locator('.earth-panel')).toBeVisible()
   return page.locator('.earth-panel')
 }
@@ -37,6 +48,7 @@ async function trailPixels(page: Page) {
 }
 
 test('PM2.5 直达、真实浓度、正交球面、时间切换与风场回切', async ({ page }) => {
+  test.setTimeout(240_000)
   const errors: string[] = []
   page.on('pageerror', (error) => errors.push(error.stack ?? error.message))
   await page.goto('/?earth=pm25')
@@ -45,6 +57,7 @@ test('PM2.5 直达、真实浓度、正交球面、时间切换与风场回切',
   })
   await expect(page.locator('.earth-data-card')).toContainText('0.4° 全球网格')
   await expect(page.locator('.earth-data-card')).toContainText('µg/m³')
+  await page.keyboard.press('Escape')
   const orthographic = () =>
     page.evaluate(() => {
       const viewer = window.__cesiumKit!.getViewer() as unknown as {
@@ -73,7 +86,7 @@ test('PM2.5 直达、真实浓度、正交球面、时间切换与风场回切',
   await expect(page.locator('.earth-data-card')).toContainText('0.5° 全球网格')
   await page
     .locator('.earth-mode-strip')
-    .getByRole('button', { name: '颗粒物 · PM2.5', exact: true })
+    .getByRole('button', { name: '颗粒物', exact: true })
     .click()
   await expect(page.locator('.earth-mode-strip .active')).toBeEnabled({ timeout: 60_000 })
   await expect(page.locator('.earth-data-card')).toContainText('CAMS / 真实颗粒物预报')
@@ -83,7 +96,7 @@ test('PM2.5 直达、真实浓度、正交球面、时间切换与风场回切',
   await expect(page.locator('.earth-wind-trails')).toHaveCount(0)
   await expect(page.locator('.earth-data-card')).toContainText('µg/m³')
   await panel.locator('.earth-grid-2 .el-select').first().click()
-  await page.getByRole('option', { name: '10 m 风 · GFS', exact: true }).click()
+  await page.getByRole('option', { name: '10 m 风', exact: true }).click()
   await expect(page.locator('.earth-wind-trails')).toHaveCount(1)
   await page.locator('.earth-panel').getByText('平面', { exact: true }).click()
   await expect.poll(async () => (await readState(page)).mode).toBe('2D')
@@ -117,6 +130,7 @@ test('真实 GFS 网格、轨迹、时间拖动、固定点查和卸载', async 
     .poll(async () => (await readState(page)).features, { timeout: 40_000 })
     .toContain('earth-plugin')
   await expect(page.locator('.earth-data-card')).toContainText('0.5° 全球网格', { timeout: 60_000 })
+  await page.keyboard.press('Escape')
   await expect(page.locator('.earth-panel')).toBeHidden()
   await expect.poll(() => trailPixels(page), { timeout: 30_000 }).toBeGreaterThan(1000)
   const screen = await page.evaluate(() =>
@@ -191,9 +205,9 @@ test('窄屏可展开控制菜单并保留可见的时间和地图', async ({ pa
   await page.setViewportSize({ width: 390, height: 844 })
   await enterEarth(page)
   await expect.poll(() => trailPixels(page), { timeout: 30_000 }).toBeGreaterThan(250)
-  await page.getByRole('button', { name: 'earth +' }).click()
+  await openControls(page)
   await expect(page.locator('.earth-panel')).toBeVisible()
-  await page.getByRole('button', { name: 'earth −' }).click()
+  await page.keyboard.press('Escape')
   await expect(page.locator('.earth-panel')).toBeHidden()
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(390)
   await page.screenshot({ path: 'test-results/earth-real-mobile.png' })

@@ -17,12 +17,7 @@ import type { AddTilesetOptions, TilesetManager, TilesetSource } from '../tilese
 import type { CesiumKitEventMap } from '../types'
 import { createId } from '../utils/assert'
 import { createLogger, type Logger } from '../utils/logger'
-import type {
-  CesiumFeature,
-  FeatureContext,
-  FeatureLayerRegistry,
-  PrimitiveLike
-} from './types'
+import type { CesiumFeature, FeatureContext, FeatureLayerRegistry, PrimitiveLike } from './types'
 
 export interface FeatureRegistryDeps {
   viewer: Cesium.Viewer
@@ -234,8 +229,9 @@ export class FeatureRegistry {
       entry.installed = true
       this.deps.events.emit('feature:registered', feature.name)
     } catch (error) {
-      this.entries.delete(feature.name)
+      if (this.entries.get(feature.name) === entry) this.entries.delete(feature.name)
       this.cleanup(entry)
+      if (entry.cancelled) return
       this.log.error(`插件 "${feature.name}" 安装失败`, error)
       this.deps.events.emit('feature:error', { name: feature.name, error })
       throw error

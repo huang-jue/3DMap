@@ -35,13 +35,15 @@ export function createEarthVectorFeature(
   let settings: Partial<EarthSettings> = defaultOptions.settings ?? {}
   let nodeId: string | undefined
   let disposed = false
+  let pendingChild: WindFieldFeature | null = null
+  let childRequest = 0
 
   const particleOptions = () => ({
     renderer: 'trails' as const,
     particlesTextureSize: settings.flowDensity ?? (settings.hd ? 192 : 128),
     particleHeight: 100,
     lineWidth: { min: settings.hd ? 1.1 : 0.85, max: 1.5 },
-    speedFactor: settings.flowSpeed ?? defaultOptions.vector.speedFactor ?? 1.5,
+    speedFactor: ((settings.flowSpeed ?? 1.5) / 1.5) * (defaultOptions.vector.speedFactor ?? 1.5),
     colors: defaultOptions.vector.colors ?? ['#ffffff'],
     dynamic: settings.dynamic ?? true,
     followClock,
@@ -49,27 +51,33 @@ export function createEarthVectorFeature(
   })
 
   const disposeChild = (): void => {
+    childRequest++
+    pendingChild?.dispose?.()
+    pendingChild = null
     feature?.dispose?.()
     feature = null
   }
 
   const createChild = async (ctx: FeatureContext): Promise<void> => {
     disposeChild()
+    const request = childRequest
     const next = createWindFieldFeature({
       data: defaultOptions.vector.data,
       name: defaultOptions.name ?? `earth-vector-${defaultOptions.vector.id}`,
       ...particleOptions()
     })
+    pendingChild = next
     await next.install(ctx, {
       data: defaultOptions.vector.data,
       name: defaultOptions.name ?? `earth-vector-${defaultOptions.vector.id}`,
       ...particleOptions()
     })
-    if (disposed) {
+    if (disposed || request !== childRequest) {
       next.dispose?.()
       return
     }
     feature = next
+    pendingChild = null
     feature.setVisible(visible)
   }
 
@@ -125,13 +133,17 @@ export function createEarthVectorFeature(
     setFollowClock(enabled) {
       if (followClock === enabled) return
       followClock = enabled
-      if (ctxRef) void createChild(ctxRef)
+      if (ctxRef)
+        void createChild(ctxRef).catch((error) => {
+          if (!disposed) ctxRef?.log.warn('矢量时间模式切换失败', error)
+        })
     },
     setSettings(next) {
       settings = { ...settings, ...next }
       feature?.updateOptions({
         particlesTextureSize: settings.flowDensity ?? (settings.hd ? 192 : 128),
-        speedFactor: settings.flowSpeed ?? defaultOptions.vector.speedFactor ?? 1.5,
+        speedFactor:
+          ((settings.flowSpeed ?? 1.5) / 1.5) * (defaultOptions.vector.speedFactor ?? 1.5),
         lineWidth: { min: settings.hd ? 1.1 : 0.85, max: 1.5 },
         dynamic: settings.dynamic ?? true
       })

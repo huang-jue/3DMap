@@ -1,0 +1,1 @@
+{"format":"earth-scalar-f32-v1","legend":{"min":0,"max":5000,"unit":"J/kg","colors":["#111c40","#227b9a","#43c076","#f0e340","#d44337","#f100e9"]},"frames":[{"time":"2026-10-27T07:00:00.000Z","width":721,"height":361,"bounds":{"west":-180,"east":180,"south":-90,"north":90},"noData":-9999,"binary":"cape-0.f32.gz"}]}

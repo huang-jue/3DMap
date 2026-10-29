@@ -83,6 +83,7 @@ interface EarthPlugin {
   readonly weatherWarnings: WeatherWarningFeature | null
   readonly windFarm: WindFarmFeature | null
   setMode(mode: EarthMode): Promise<void>
+  setLevel(id: string): Promise<void>
   setOverlay(id: string | null): Promise<void>
   setVector(id: string | null): Promise<void>
   setAnnotation(id: string, visible: boolean): void | Promise<void>
@@ -102,8 +103,12 @@ interface EarthPlugin {
 ## 子能力
 
 叠加配置 `EarthOverlayConfig` 支持 `scale: 'linear' | 'log'`。
-可选 `metadata: { source, resolution, width, height, level, times }` 为各色层提供独立的来源、网格与预报帧时间；
+可选 `metadata: { source, resolution, longitudeResolution?, width, height, level, times }` 为各色层提供独立的来源、网格与预报帧时间；
 Playground 优先展示该字段，避免把 CAMS 浓度误标为 GFS 风场。
+
+`EarthModeConfig.levels` 为可选的 `EarthLevelConfig[]`，各高度分别配置矢量、色层及默认选择；`defaultLevel` 指定初始高度。
+`EarthPlugin.level` 返回当前高度，`setLevel(id)` 切换高度并尽量保留同名叠加产品。
+`categories?: string[]` 标识分类色层，点查及 Canvas 使用最近邻。矢量 `kind` 为 wind/currents/waves，元信息独立于色层。
 
 ```ts
 createEarthScalarFeature(options): EarthScalarFeature

@@ -80,6 +80,7 @@ export function createWeatherWarningFeature(
   let showPopup = defaultOptions.showPopup ?? true
   let onSelect = defaultOptions.onSelect
   let disposed = false
+  let controller = new AbortController()
   let fixedTime = defaultOptions.time
 
   const closePopup = (): void => {
@@ -116,12 +117,13 @@ export function createWeatherWarningFeature(
     options?: WeatherWarningFeatureOptions
   ): Promise<void> => {
     disposed = false
+    controller = new AbortController()
     ctxRef = ctx
     const merged: WeatherWarningFeatureOptions = { ...defaultOptions, ...options }
     showPopup = merged.showPopup ?? true
     fixedTime = merged.time
     onSelect = merged.onSelect
-    warnings = await loadWeatherWarnings(merged.warnings)
+    warnings = await loadWeatherWarnings(merged.warnings, { signal: controller.signal })
     if (disposed) return
     visibleState = merged.visible ?? true
     layer = new WeatherWarningLayer(ctx.viewer, warnings, {
@@ -189,6 +191,7 @@ export function createWeatherWarningFeature(
     },
     dispose() {
       disposed = true
+      controller.abort()
       unsubscribeTick?.()
       unsubscribeTick = undefined
       if (nodeId && ctxRef?.layerManager?.get(nodeId)) {

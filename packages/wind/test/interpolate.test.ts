@@ -11,6 +11,9 @@ const grid: WindGrid = {
 }
 
 describe('interpolateWind', () => {
+  it('海陆缺测网格不返回 NaN 风速或方向', () => {
+    expect(interpolateWind({ ...grid, u: [NaN, 10, 20, 30] }, 0.5, 0.5)).toBeNull()
+  })
   it('在四个角返回原始值', () => {
     expect(interpolateWind(grid, 0, 0)).toMatchObject({ u: 0, v: 1 })
     expect(interpolateWind(grid, 1, 0)).toMatchObject({ u: 10, v: 1 })

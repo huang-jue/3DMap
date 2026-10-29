@@ -1,0 +1,1 @@
+{"format":"earth-scalar-f32-v1","legend":{"min":0,"max":80000,"unit":"W/m²","colors":["#0f0460","#796602","#76a142","#3266db","#3bcce3","#f1012d","#f300f1"]},"frames":[{"width":721,"height":361,"bounds":{"west":-180,"east":180,"south":-90,"north":90},"noData":-9999,"time":"2026-10-27T07:00:00.000Z","binary":"wpd-70hPa-0.f32.gz"}]}

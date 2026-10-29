@@ -84,6 +84,7 @@ test('CAMS PM2.5 preserves concentration units, orientation, seam and GFS-aligne
   }
   const particulate = json('manifest.json').modes.find((mode) => mode.id === 'particulate')
   assert.equal(particulate.defaultOverlay, 'pm25')
-  assert.equal(particulate.overlays[0].scale, 'log')
-  assert.equal(particulate.overlays[0].metadata.resolution, 0.4)
+  const pm25 = particulate.overlays.find((overlay) => overlay.id === 'pm25')
+  assert.equal(pm25.scale, 'log')
+  assert.equal(pm25.metadata.resolution, 0.4)
 })

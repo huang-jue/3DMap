@@ -25,6 +25,7 @@ export default defineConfig({
             { text: '天气预报', link: '/guide/weather' },
             { text: '水旱灾害防御四预', link: '/guide/flood' },
             { text: '地球可视化', link: '/guide/earth' },
+            { text: '地球分析与地图对比', link: '/guide/earth-analysis' },
             { text: '风场', link: '/guide/wind' },
             { text: '业务插件开发', link: '/guide/feature' },
             { text: '常见问题', link: '/guide/faq' }

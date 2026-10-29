@@ -1,5 +1,4 @@
-// EPak container / ppak numeric grid decoder. Only the documented ppak block
-// used by the downloaded GFS/CAMS snapshots is accepted; no remote code is executed.
+// Bounded EPak ppak grids / qpak column decoder. No remote code is executed.
 export function decodeEpak(buffer) {
   let offset = 0
   const need = (size) => {
@@ -26,21 +25,25 @@ export function decodeEpak(buffer) {
   while (true) {
     const type = tag()
     if (type === 'tail') break
-    if (type !== 'ppak') throw new Error(`Unsupported EPak block ${type}`)
+    if (type !== 'ppak' && type !== 'qpak') throw new Error(`Unsupported EPak block ${type}`)
     const length = size()
     need(length)
-    if (length < 16) throw new Error('Invalid ppak header')
+    const column = type === 'qpak'
+    const headerSize = column ? 13 : 16
+    if (length < headerSize) throw new Error('Invalid packed header')
     const block = buffer.subarray(offset, offset + length)
     offset += length
-    const cols = block.readUInt32BE(0)
-    const rows = block.readUInt32BE(4)
-    const grids = block.readUInt32BE(8)
-    const scale = 10 ** block.readFloatBE(12)
+    const element = column ? block.readUInt8(0) : 8
+    if (element !== 8 && element !== 9) throw new Error('Unsupported qpak element')
+    const cols = column ? block.readUInt32BE(1) : block.readUInt32BE(0)
+    const rows = column ? 1 : block.readUInt32BE(4)
+    const grids = column ? 1 : block.readUInt32BE(8)
+    const scale = column ? block.readDoubleBE(5) : 10 ** block.readFloatBE(12)
     const count = cols * rows * grids
-    if (!cols || !rows || !grids || count > 20_000_000 || !Number.isFinite(scale))
+    if (!cols || !rows || !grids || count > 20_000_000 || !Number.isFinite(scale) || scale <= 0)
       throw new Error('Invalid ppak dimensions')
-    const values = new Float32Array(count)
-    let cursor = 16
+    const values = element === 9 ? new Float64Array(count) : new Float32Array(count)
+    let cursor = headerSize
     let index = 0
     const byte = () => {
       if (cursor >= block.length) throw new Error('Truncated ppak integer')
@@ -99,7 +102,7 @@ export function decodeEpak(buffer) {
       }
     }
     for (let i = 0; i < count; i++) values[i] /= scale
-    blocks.push({ cols, rows, grids, values })
+    blocks.push({ type, cols, rows, grids, values })
   }
   if (offset !== buffer.length) throw new Error('Unexpected trailing EPak data')
   return { header, blocks }

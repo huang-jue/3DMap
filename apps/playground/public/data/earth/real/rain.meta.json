@@ -1,0 +1,1 @@
+{"format":"earth-scalar-f32-v1","legend":{"min":0,"max":50,"unit":"mm","colors":["#101333","#1c56b7","#37cc73","#e6e554","#ed832c","#ad1552"]},"frames":[{"time":"2026-10-27T07:00:00.000Z","width":721,"height":361,"bounds":{"west":-180,"east":180,"south":-90,"north":90},"noData":-9999,"binary":"rain-0.f32.gz"}]}

@@ -51,16 +51,21 @@ export class EarthAnnotationLayer {
         new Cesium.Entity({
           id: `earth-annotation:${item.id}`,
           name: item.label,
-          position: Cesium.Cartesian3.fromDegrees(item.lon, item.lat, 0),
+          position: Cesium.Cartesian3.fromDegrees(item.lon, item.lat, 200),
           point: {
             pixelSize: 7,
             color: this.color,
             outlineColor: Cesium.Color.WHITE,
             outlineWidth: 1,
-            disableDepthTestDistance: Number.POSITIVE_INFINITY
+            disableDepthTestDistance:
+              item.properties?.frp === undefined ? Number.POSITIVE_INFINITY : 0
           },
           label: {
             text: item.label,
+            distanceDisplayCondition:
+              item.properties?.frp === undefined
+                ? undefined
+                : new Cesium.DistanceDisplayCondition(0, 500_000),
             font: '11px sans-serif',
             fillColor: this.color,
             outlineColor: Cesium.Color.BLACK,

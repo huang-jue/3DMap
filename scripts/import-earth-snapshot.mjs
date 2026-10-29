@@ -3,6 +3,7 @@ import { createHash } from 'node:crypto'
 import { fileURLToPath } from 'node:url'
 import { decodeEpak } from './earth/decode-epak.mjs'
 import { importPm25 } from './earth/import-pm25.mjs'
+import { importCatalog } from './earth/import-catalog.mjs'
 
 const root = new URL('../apps/playground/public/data/earth/real/', import.meta.url)
 const rawFiles = ['wind-current.epak', 'wind-0300.epak', 'wind-0600.epak']
@@ -208,3 +209,4 @@ write('manifest.json', {
 console.log(
   `Imported ${records.length} real GFS frames, 0.5°, ${records[0].width} × ${records[0].height}`
 )
+importCatalog()

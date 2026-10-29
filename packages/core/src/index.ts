@@ -187,6 +187,7 @@ export type {
 export { createLogger, getLogLevel, setLogLevel } from './utils/logger'
 export type { Logger, LogLevel } from './utils/logger'
 export { assert, createId } from './utils/assert'
+export { InitializationGate } from './utils/InitializationGate'
 export { assertBrowser, isBrowser } from './utils/ssr'
 export { toColor } from './utils/color'
 export { verifyCesiumAssets } from './utils/verifyAssets'
@@ -221,6 +222,11 @@ export type {
   SnapshotLayer,
   SnapshotIssue
 } from './snapshot/types'
+export type { SnapshotExtensionAdapter } from './snapshot/types'
 
 export { SelectionService } from './selection/SelectionService'
+export { DataRepository, sharedDataRepository } from './data/DataRepository'
+export type { DataRequestOptions, DataLoadDiagnostic } from './data/DataRepository'
+export { readFloatBinary, dataUrl } from './data/frames'
+export type { FrameSource } from './data/frames'
 export type { SelectionResult, SelectionState } from './selection/SelectionService'

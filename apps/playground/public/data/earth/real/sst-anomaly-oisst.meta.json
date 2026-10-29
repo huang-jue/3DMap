@@ -1,0 +1,1 @@
+{"format":"earth-scalar-f32-v1","legend":{"min":-11,"max":11,"unit":"°C","colors":["#ffffff","#07fcfe","#422afd","#000006","#fd0e10","#fefc00","#ffffff"]},"frames":[{"time":"2026-10-25T12:00:00.000Z","width":721,"height":360,"bounds":{"west":-180,"east":180,"south":-89.875,"north":89.625},"noData":-9999,"binary":"sst-anomaly-oisst-0.f32.gz"}]}

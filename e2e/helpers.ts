@@ -79,6 +79,11 @@ export async function openMap(page: Page): Promise<void> {
         timeout: 100_000
       })
       await expect(page.locator('canvas')).toBeVisible()
+      await page.locator('.workbench-section').evaluateAll((items) =>
+        items.forEach((item) => {
+          ;(item as HTMLDetailsElement).open = true
+        })
+      )
       return
     } catch (error) {
       if (attempt === 1) throw error

@@ -40,7 +40,8 @@ function toNumber(value: unknown): number | undefined {
 
 function toFloat32(value: unknown): Float32Array {
   if (value instanceof Float32Array) return value
-  if (Array.isArray(value)) return Float32Array.from(value as number[])
+  if (Array.isArray(value))
+    return Float32Array.from(value, (item) => (item === null ? NaN : Number(item)))
   if (ArrayBuffer.isView(value)) {
     return Float32Array.from(value as unknown as ArrayLike<number>)
   }
@@ -64,7 +65,12 @@ function reverseRows(data: Float32Array, width: number, height: number): Float32
   return result
 }
 
-function rollColumns(data: Float32Array, width: number, height: number, offset: number): Float32Array {
+function rollColumns(
+  data: Float32Array,
+  width: number,
+  height: number,
+  offset: number
+): Float32Array {
   if (offset <= 0) return data
   const result = new Float32Array(data.length)
   for (let y = 0; y < height; y += 1) {
@@ -104,10 +110,7 @@ function buildBounds(west: number, south: number, east: number, north: number): 
   }
 }
 
-function parseNative(
-  document: Record<string, unknown>,
-  options: ParseWindOptions
-): WindGrid {
+function parseNative(document: Record<string, unknown>, options: ParseWindOptions): WindGrid {
   const width = toNumber(document.width)
   const height = toNumber(document.height)
   if (width === undefined || height === undefined) {
@@ -142,9 +145,7 @@ function parseNative(
   }
   const refTimeRaw = document.refTime
   const refTime =
-    typeof refTimeRaw === 'string' || refTimeRaw instanceof Date
-      ? new Date(refTimeRaw)
-      : undefined
+    typeof refTimeRaw === 'string' || refTimeRaw instanceof Date ? new Date(refTimeRaw) : undefined
 
   return {
     u: shouldFlip ? reverseRows(u, width, height) : u,
@@ -256,7 +257,10 @@ export function parseWindJson(input: unknown, options: ParseWindOptions = {}): W
 }
 
 /** 解析字符串或返回已有的 WindGrid。 */
-export function normalizeWindGrid(input: WindGrid | string, options: ParseWindOptions = {}): WindGrid {
+export function normalizeWindGrid(
+  input: WindGrid | string,
+  options: ParseWindOptions = {}
+): WindGrid {
   if (typeof input !== 'string') return input
   const parsed: unknown = JSON.parse(input)
   return parseWindJson(parsed, options)

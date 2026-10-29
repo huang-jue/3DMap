@@ -1,7 +1,7 @@
 :root {
   color-scheme: dark;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC',
-    'Microsoft YaHei', sans-serif;
+  font-family:
+    -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
 }
 
 * {
@@ -20,3 +20,18 @@ body {
   background: #0b1020;
 }
 
+button:focus-visible,
+summary:focus-visible,
+input:focus-visible {
+  outline: 2px solid #77d6b7;
+  outline-offset: 3px;
+}
+button:disabled {
+  cursor: not-allowed;
+}
+.el-popper {
+  max-width: calc(100vw - 16px);
+}
+.workbench-section-body > .cesium-panel {
+  width: 100% !important;
+}

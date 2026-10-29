@@ -286,6 +286,7 @@ function renderForecastChart(): void {
   const instance = chart(forecastChartEl.value, forecastChart)
   if (!node || !instance) return
   forecastChart = instance
+  chartObserver.observe(instance.getDom())
   const measured = node.series
     .filter((point) => !point.forecast)
     .map((point) => [point.time.getTime(), point.value])
@@ -343,6 +344,7 @@ function renderDispatchChart(): void {
   const instance = chart(dispatchChartEl.value, dispatchChart)
   if (!project?.series || !instance) return
   dispatchChart = instance
+  chartObserver.observe(instance.getDom())
   instance.setOption(
     {
       backgroundColor: 'transparent',
@@ -403,6 +405,7 @@ function renderBreachChart(): void {
   const instance = chart(breachChartEl.value, breachChart)
   if (!breach || !instance) return
   breachChart = instance
+  chartObserver.observe(instance.getDom())
   instance.setOption(
     {
       backgroundColor: 'transparent',
@@ -459,8 +462,15 @@ watch([activeTab, selectedNodeId, selectedScenarioId, selectedDispatchProjectId,
   void nextTick(renderCharts)
 })
 
+const chartObserver = new ResizeObserver(resizeCharts)
+watch(enabled, async () => {
+  await nextTick()
+  for (const host of [forecastChart?.getDom(), dispatchChart?.getDom(), breachChart?.getDom()])
+    if (host) chartObserver.observe(host)
+})
 window.addEventListener('resize', resizeCharts)
 onBeforeUnmount(() => {
+  chartObserver.disconnect()
   window.removeEventListener('resize', resizeCharts)
   disposeCharts()
 })

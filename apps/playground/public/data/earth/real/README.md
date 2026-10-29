@@ -1,5 +1,10 @@
 # 真实 GFS 风场与 CAMS PM2.5 离线快照
 
+现已扩展为六组真实数据，包含 55 个新增标量产品、8 个大气高度、海流/波浪、极光与生物图层。
+底部图层目录可直接切换；`/?earth=co2sc` 可打开 GEOS-5 CO₂ 页面。
+完整产品、数据单位与剩余投影/动画差异见 `docs/guide/earth-reference-audit.md`。
+大部分新产品保留一份真实原始帧，页面显示实际有效时间，单帧时禁用时间播放；不同数据源不强行伪造为同一预报时刻。
+
 从 earth.nullschool.net 的公开数据服务下载，模型来源为 NOAA/NCEP Global Forecast System。
 PM2.5 来源为 Copernicus Atmosphere Monitoring Service（CAMS）/ ECMWF，使用参考网站同类的真实浓度预报。
 这是固定预报演示数据，不是实时天气观测。其他六种模式的合成数据位于上级目录，菜单中单独选择。

@@ -65,6 +65,26 @@ jobs:
           pnpm --filter "./packages/*" exec npm pack --pack-destination /tmp/packs
           ls -al /tmp/packs
 
+  ui-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+      - run: pnpm exec playwright install --with-deps chromium
+      - run: pnpm exec playwright test e2e/ui-smoke.spec.ts --retries=0
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: ui-smoke-results
+          path: test-results
+          retention-days: 7
+
   e2e:
     runs-on: ubuntu-latest
     continue-on-error: true # 观察一周稳定后改为阻塞

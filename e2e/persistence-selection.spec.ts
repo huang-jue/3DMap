@@ -42,6 +42,7 @@ test('imports/exports drawings and restores a saved scene after page reload', as
   await expect(panel.getByRole('status')).toContainText('场景已保存')
   await page.reload()
   await page.waitForFunction(() => Boolean(window.__cesiumKit))
+  await page.locator('summary').filter({ hasText: '成果与场景' }).click()
   await panel.getByRole('button', { name: '恢复本地场景', exact: true }).click()
   await expect(panel.getByRole('status')).toContainText('失败 0')
   const restored = await page.evaluate(() => {

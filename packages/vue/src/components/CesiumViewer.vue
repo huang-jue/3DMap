@@ -2,16 +2,13 @@
 import { inject, onBeforeUnmount, onMounted, provide, ref, shallowRef, watch } from 'vue'
 import {
   CesiumViewerManager,
+  InitializationGate,
   type CameraView,
   type CesiumKitErrorPayload,
   type CesiumKitOptions,
   type SceneModeName
 } from '@sgyx/cesium-kit-core'
-import {
-  CESIUM_KIT_CONTEXT_KEY,
-  CESIUM_KIT_OPTIONS_KEY,
-  createCesiumContext
-} from '../context'
+import { CESIUM_KIT_CONTEXT_KEY, CESIUM_KIT_OPTIONS_KEY, createCesiumContext } from '../context'
 import type { CesiumKitPluginOptions } from '../plugin'
 
 defineOptions({ name: 'CesiumViewer' })
@@ -49,6 +46,8 @@ const manager = shallowRef<CesiumViewerManager | null>(null)
 const globalOptions = inject<CesiumKitPluginOptions | null>(CESIUM_KIT_OPTIONS_KEY, null)
 let disposers: Array<() => void> = []
 let unmounted = false
+const initialization = new InitializationGate<CesiumViewerManager>((instance) => instance.destroy())
+let generation = 0
 
 function disposeListeners(): void {
   for (let i = disposers.length - 1; i >= 0; i -= 1) {
@@ -62,9 +61,9 @@ function disposeListeners(): void {
 }
 
 async function init(): Promise<CesiumViewerManager | null> {
-  if (!container.value || manager.value) return manager.value
+  if (unmounted || !container.value || manager.value) return manager.value
+  const current = generation
   context.reset()
-
   const merged: CesiumKitOptions = {
     ...globalOptions?.defaultViewerOptions,
     ...props.options,
@@ -72,37 +71,38 @@ async function init(): Promise<CesiumViewerManager | null> {
   }
 
   try {
-    const instance = await CesiumViewerManager.create(container.value, merged)
-    if (unmounted) {
-      instance.destroy()
-      return null
-    }
+    return await initialization.run(
+      () => CesiumViewerManager.create(container.value!, merged),
+      (instance) => {
+        manager.value = instance
+        context.resolve(instance)
 
-    manager.value = instance
-    context.resolve(instance)
+        disposers.push(instance.camera.onChange((view) => emit('camera-change', view)))
+        disposers.push(
+          instance.events.on('imagery:change', ({ id }) => {
+            emit('imagery-change', id)
+            emit('update:baseLayer', id)
+          })
+        )
+        disposers.push(
+          instance.events.on('scene:mode', (mode) => {
+            emit('scene-mode', mode)
+            emit('update:sceneMode', mode)
+          })
+        )
+        disposers.push(instance.events.on('error', (payload) => emit('error', payload)))
 
-    disposers.push(instance.camera.onChange((view) => emit('camera-change', view)))
-    disposers.push(
-      instance.events.on('imagery:change', ({ id }) => {
-        emit('imagery-change', id)
-        emit('update:baseLayer', id)
-      })
+        if (props.baseLayer) instance.imagery.switchTo(props.baseLayer)
+        if (props.sceneMode) instance.scene.setMode(props.sceneMode, 0)
+
+        emit('camera-change', instance.camera.getView())
+        emit('ready', instance)
+      }
     )
-    disposers.push(
-      instance.events.on('scene:mode', (mode) => {
-        emit('scene-mode', mode)
-        emit('update:sceneMode', mode)
-      })
-    )
-    disposers.push(instance.events.on('error', (payload) => emit('error', payload)))
-
-    if (props.baseLayer) instance.imagery.switchTo(props.baseLayer)
-    if (props.sceneMode) instance.scene.setMode(props.sceneMode, 0)
-
-    emit('camera-change', instance.camera.getView())
-    emit('ready', instance)
-    return instance
   } catch (error) {
+    if (unmounted || current !== generation) return null
+    disposeListeners()
+    manager.value = null
     context.fail(error)
     emit('error', { source: 'viewer', error })
     return null
@@ -110,6 +110,8 @@ async function init(): Promise<CesiumViewerManager | null> {
 }
 
 function destroy(): void {
+  generation++
+  initialization.cancel()
   disposeListeners()
   manager.value?.destroy()
   manager.value = null

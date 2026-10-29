@@ -40,6 +40,7 @@ export function interpolateWind(grid: WindGrid, lon: number, lat: number): WindS
   const u = sample(grid.u)
   const v = sample(grid.v)
   const speed = grid.speed ? sample(grid.speed) : Math.hypot(u, v)
+  if (![u, v, speed].every(Number.isFinite)) return null
   const direction = ((Math.atan2(u, v) * 180) / Math.PI + 360) % 360
 
   return { u, v, speed, direction }

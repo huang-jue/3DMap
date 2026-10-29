@@ -37,6 +37,9 @@ await manager.features.register(earth)
 
 Playground 默认使用 `public/data/earth/real/manifest.json` 的 NOAA/NCEP GFS 0.5° 真实离线快照（3 个时刻、10 m 风）。
 同一真实数据集还包含 CAMS / ECMWF 的 0.4° PM2.5 浓度预报，三个有效时刻与风场一致。
+默认真实数据集现已提供全部六组内容、八个大气高度及化学/海洋/生物等产品。
+底部目录可选择模式、高度、动画、色层和投影，`/?earth=co2sc` 可直接打开真实 CO₂。
+每个产品保留独立有效时间，单帧产品不会伪造连续预报；[面板对照](../../docs/guide/earth-reference-audit.md)列出支持项及仍存在的投影/波浪动画差异。
 顶部「颗粒物 · PM2.5」或 `/?earth=pm25` 可进入正交球面、对数色阶与浓度点查；菜单可关闭风流线。
 原始 EPak、来源 URL、SHA-256 和模型时间均保存在 `real/` 下；`node scripts/import-earth-snapshot.mjs` 可离线重新转换。
 连续流线使用 Canvas 2D 屏幕轨迹与 Cesium 投影，提供中点积分、U/V 时间插值和视口粒子分布；原 wind 包 GPU 方案仍可使用。

@@ -45,6 +45,8 @@ export interface EarthVectorConfig {
   colors?: string[]
   particleHeight?: number
   speedFactor?: number
+  kind?: 'wind' | 'currents' | 'waves'
+  metadata?: { source: string; level: string; times: string[]; publishedAt?: string }
 }
 
 export interface EarthOverlayConfig extends EarthLegend {
@@ -52,9 +54,12 @@ export interface EarthOverlayConfig extends EarthLegend {
   label: string
   data: string
   scale?: 'linear' | 'log'
+  categories?: string[]
   metadata?: {
     source: string
     resolution: number
+    longitudeResolution?: number
+    publishedAt?: string
     width: number
     height: number
     level: string
@@ -62,14 +67,20 @@ export interface EarthOverlayConfig extends EarthLegend {
   }
 }
 
-export interface EarthModeConfig {
-  id: EarthMode
+export interface EarthLevelConfig {
+  id: string
   label: string
   vectors: EarthVectorConfig[]
   overlays: EarthOverlayConfig[]
   defaultVector?: string
   defaultOverlay?: string
   defaultAnnotations?: string[]
+}
+
+export interface EarthModeConfig extends EarthLevelConfig {
+  id: EarthMode
+  levels?: EarthLevelConfig[]
+  defaultLevel?: string
 }
 
 export interface EarthAnnotationConfig {
@@ -104,6 +115,7 @@ export interface EarthManifest {
     level: string
     times: string[]
     provenance: string
+    publishedAt?: string
     coastline?: string
   }
 }
@@ -164,4 +176,30 @@ export interface EarthProbeResult {
     color: string
   } | null
   annotations: EarthAnnotationItem[]
+}
+
+export interface EarthPluginState {
+  version: 1
+  dataRef: string
+  mode: EarthMode
+  level: string
+  overlay: string | null
+  vector: string | null
+  annotations: string[]
+  weather: { points: boolean; warnings: boolean; windFarm: boolean }
+  projection: EarthProjection
+  settings: EarthSettings
+  followClock: boolean
+}
+export interface EarthPointSeries {
+  lon: number
+  lat: number
+  level: string
+  series: Array<{
+    id: string
+    label: string
+    unit: string
+    categories?: string[]
+    points: Array<{ time: string; value: number | null }>
+  }>
 }

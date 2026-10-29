@@ -5,6 +5,11 @@ import { snapshotJSON } from './json'
 export function validateSceneSnapshot(input: unknown): SceneSnapshot {
   const data = snapshotJSON(typeof input === 'string' ? JSON.parse(input) : input) as SceneSnapshot
   if (!data || data.version !== 1) throw new Error('不支持的场景快照版本')
+  if (
+    data.extensions !== undefined &&
+    (!data.extensions || typeof data.extensions !== 'object' || Array.isArray(data.extensions))
+  )
+    throw new Error('非法场景扩展')
   if (!['3D', '2D', 'COLUMBUS_VIEW'].includes(data.mode)) throw new Error('非法场景模式')
   if (
     !data.camera ||

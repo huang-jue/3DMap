@@ -1,5 +1,5 @@
 ﻿import type { CesiumFeature, FeatureContext } from '@sgyx/cesium-kit-core'
-import { loadWindGrids } from '../data/loadWind'
+import { openWindSource, loadWindGrids } from '../data/loadWind'
 import { findNearestTimeIndex, WindTimeInterpolator } from '../data/timeSeries'
 import type { ParseWindOptions, WindGrid, WindSample } from '../shared/types'
 import { WindFieldLayer, type WindFieldLayerOptions } from './WindFieldLayer'
@@ -62,7 +62,6 @@ function gridAt(grids: WindGrid[], time: Date, followClock: boolean): WindGrid |
 export function createWindFieldFeature(defaultOptions: WindFieldFeatureOptions): WindFieldFeature {
   let layer: WindFieldLayer | null = null
   let grids: WindGrid[] = []
-  let currentGrid: WindGrid | undefined
   let unsubscribeTick: (() => void) | undefined
   let followClock = defaultOptions.followClock ?? true
   let disposed = false
@@ -70,35 +69,95 @@ export function createWindFieldFeature(defaultOptions: WindFieldFeatureOptions):
   let timeInterpolator: WindTimeInterpolator | null = null
   let offState: (() => void) | undefined
   let lastSampleAt = 0
+  let source: Awaited<ReturnType<typeof openWindSource>> | null = null
+  let controller = new AbortController()
+  let frameRequest = 0
+  let loadingKey = ''
+  let loadedKey = ''
+  let viewerRef: FeatureContext['viewer'] | null = null
+  const loadAt = async (time: Date): Promise<WindGrid[]> => {
+    if (!source) return []
+    const times = source.times
+    let right = times.findIndex((item) => item.getTime() >= time.getTime())
+    if (right < 0) right = times.length - 1
+    const left = Math.max(0, right - 1)
+    const indexes =
+      defaultOptions.renderer === 'trails' && followClock
+        ? [...new Set([left, right])]
+        : [
+            followClock
+              ? findNearestTimeIndex(
+                  times.map((refTime) => ({ refTime })),
+                  time
+                )
+              : 0
+          ]
+    return Promise.all(
+      indexes.map((index) => source!.getFrame(index, { signal: controller.signal }))
+    )
+  }
 
   const install = async (ctx: FeatureContext, options?: WindFieldFeatureOptions): Promise<void> => {
     disposed = false
+    controller = new AbortController()
     clock = ctx.clock
+    viewerRef = ctx.viewer
     const merged: WindFieldFeatureOptions = { ...defaultOptions, ...options }
     followClock = merged.followClock ?? true
-    grids = await loadWindGrids(merged.data, merged.parse)
+    source = await openWindSource(merged.data, merged.parse, { signal: controller.signal })
+    grids = await loadAt(ctx.clock.state.currentTime)
     if (disposed) return
     grids.sort((a, b) => (a.refTime?.getTime() ?? 0) - (b.refTime?.getTime() ?? 0))
     timeInterpolator = merged.renderer === 'trails' ? new WindTimeInterpolator(grids) : null
     const grid = gridAt(grids, ctx.clock.state.currentTime, followClock)
     if (!grid) throw new Error('@cesium-kit/wind: 风场数据为空')
 
-    currentGrid = grid
     layer = new WindFieldLayer(ctx.viewer, grid, pickLayerOptions(merged))
     ctx.layers.primitive(layer)
     layer.add()
 
     if (merged.flyTo) layer.zoomTo(1.5)
 
-    if (followClock && grids.length > 1) {
+    if (followClock && (source?.times.length ?? 0) > 1) {
       const applyTime = (currentTime: Date, force = false) => {
         const now = performance.now()
-        if (!force && timeInterpolator && now - lastSampleAt < 160) return
+        if (!force && now - lastSampleAt < 160) return
         lastSampleAt = now
-        const next = timeInterpolator?.at(currentTime) ?? gridAt(grids, currentTime, followClock)
-        if (!next || (!timeInterpolator && next === currentGrid)) return
-        currentGrid = next
-        layer?.updateData(next)
+        const times = source!.times
+        let right = times.findIndex((item) => item.getTime() >= currentTime.getTime())
+        if (right < 0) right = times.length - 1
+        const key = `${Math.max(0, right - 1)}:${right}`
+        const update = () => {
+          const next =
+            timeInterpolator?.at(clock!.state.currentTime) ?? gridAt(grids, currentTime, true)
+          if (next) {
+            layer?.updateData(next)
+          }
+        }
+        if (loadedKey === key) {
+          update()
+          return
+        }
+        if (loadingKey === key) return
+        loadingKey = key
+        const request = ++frameRequest
+        void loadAt(currentTime)
+          .then((nextGrids) => {
+            if (disposed || request !== frameRequest) return
+            grids = nextGrids
+            loadedKey = key
+            loadingKey = ''
+            timeInterpolator = merged.renderer === 'trails' ? new WindTimeInterpolator(grids) : null
+            update()
+            if (right + 1 < times.length)
+              void source?.getFrame(right + 1, { signal: controller.signal }).catch(() => undefined)
+          })
+          .catch((error) => {
+            if (!disposed && request === frameRequest) {
+              loadingKey = ''
+              ctx.log.warn('矢量帧加载失败', error)
+            }
+          })
       }
       unsubscribeTick = ctx.clock.onTick(({ currentTime }) => applyTime(currentTime))
       offState = ctx.clock.onStateChange(({ currentTime }) => applyTime(currentTime, true))
@@ -122,14 +181,23 @@ export function createWindFieldFeature(defaultOptions: WindFieldFeatureOptions):
       if (layer) layer.show = visible
     },
     async updateData(data: WindGrid | WindGrid[] | string) {
-      const nextGrids = await loadWindGrids(data, defaultOptions.parse)
+      const request = ++frameRequest
+      const nextGrids = await loadWindGrids(data, defaultOptions.parse, {
+        signal: controller.signal
+      })
+      if (disposed || request !== frameRequest) return
+      const nextSource = await openWindSource(data, defaultOptions.parse, {
+        signal: controller.signal
+      })
+      if (disposed || request !== frameRequest) return
+      source = nextSource
+      loadedKey = loadingKey = ''
       const next = gridAt(nextGrids, clock?.state.currentTime ?? new Date(), followClock)
       if (!next) throw new Error('@cesium-kit/wind: 风场数据为空')
       grids = nextGrids
       grids.sort((a, b) => (a.refTime?.getTime() ?? 0) - (b.refTime?.getTime() ?? 0))
       timeInterpolator =
         defaultOptions.renderer === 'trails' ? new WindTimeInterpolator(grids) : null
-      currentGrid = next
       layer?.updateData(next)
     },
     updateOptions(options: Partial<WindFieldLayerOptions>) {
@@ -140,14 +208,20 @@ export function createWindFieldFeature(defaultOptions: WindFieldFeatureOptions):
     },
     dispose() {
       disposed = true
+      controller.abort()
+      frameRequest++
+      source = null
+      loadedKey = loadingKey = ''
+      grids = []
       unsubscribeTick?.()
       offState?.()
       offState = undefined
       timeInterpolator = null
       unsubscribeTick = undefined
+      if (layer && viewerRef && !viewerRef.isDestroyed()) viewerRef.scene.primitives.remove(layer)
       layer?.destroy()
       layer = null
-      currentGrid = undefined
+      viewerRef = null
       clock = null
     }
   }
