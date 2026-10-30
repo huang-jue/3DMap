@@ -24,6 +24,7 @@ import { isEarthRoute } from './panels/earthRoute'
 import PersistencePanel from './panels/PersistencePanel.vue'
 import SelectionPanel from './panels/SelectionPanel.vue'
 import PickOverlay from './panels/PickOverlay.vue'
+import RainForecastWorkspace from './panels/RainForecastWorkspace.vue'
 
 interface CesiumViewerExposed {
   manager: CesiumViewerManager | null
@@ -36,11 +37,13 @@ interface CesiumViewerExposed {
 }
 
 const mapRef = ref<CesiumViewerExposed | null>(null)
-const baseLayer = ref('naturalEarth')
+const baseLayer = ref<string | null>('naturalEarth')
 const sceneMode = ref<SceneModeName>('3D')
 const pluginEnabled = ref(false)
 const panelOpen = ref(!window.matchMedia('(max-width: 720px)').matches)
 const earthPanelRef = ref<InstanceType<typeof EarthPanel> | null>(null)
+const rainRef = ref<InstanceType<typeof RainForecastWorkspace> | null>(null)
+const rainActive = ref(false)
 const earthMode = ref(isEarthRoute(window.location))
 const camera = reactive<CameraView>({
   lon: 0,
@@ -61,6 +64,16 @@ const viewerOptions = {
 
 function onCameraChange(info: CameraView) {
   Object.assign(camera, info)
+}
+
+function rainOpened() {
+  rainActive.value = true
+  panelOpen.value = false
+}
+
+function openWorkbench() {
+  if (!panelOpen.value) rainRef.value?.close(false)
+  panelOpen.value = !panelOpen.value
 }
 
 function onError(payload: CesiumKitErrorPayload) {
@@ -136,9 +149,10 @@ watch(pluginEnabled, async (enabled) => {
     <main class="main">
       <CesiumViewer
         ref="mapRef"
-        v-model:base-layer="baseLayer"
         v-model:scene-mode="sceneMode"
+        :base-layer="baseLayer ?? undefined"
         :options="viewerOptions"
+        @update:base-layer="baseLayer = $event"
         @ready="onReady"
         @error="onError"
         @camera-change="onCameraChange"
@@ -153,7 +167,7 @@ watch(pluginEnabled, async (enabled) => {
               :title="panelOpen ? '收起工作台' : '展开工作台'"
               :aria-label="panelOpen ? '收起工作台' : '展开工作台'"
               :aria-expanded="panelOpen"
-              @click="panelOpen = !panelOpen"
+              @click="openWorkbench"
             />
           </div>
           <div v-show="panelOpen" class="panel-scroll">
@@ -167,6 +181,16 @@ watch(pluginEnabled, async (enabled) => {
                 @screenshot-error="onScreenshotError"
               />
             </WorkbenchSection>
+            <WorkbenchSection title="降雨预报">
+              <div class="rain-entry">
+                <p>选取地图位置，查看未来 48 小时雨量和降雨概率。</p>
+                <el-button size="small" @click="rainRef?.startSelection()"
+                >
+                  地图选点降雨预报
+                </el-button
+                >
+              </div>
+            </WorkbenchSection>
             <WorkbenchSection title="时间轴"><TimePanel /></WorkbenchSection>
             <WorkbenchSection title="绘制与量算"><DrawPanel /></WorkbenchSection>
             <WorkbenchSection title="成果与场景"><PersistencePanel /></WorkbenchSection>
@@ -177,7 +201,21 @@ watch(pluginEnabled, async (enabled) => {
             <WorkbenchSection title="水旱灾害防御"><FloodPanel /></WorkbenchSection>
           </div>
         </div>
-        <EarthPanel v-if="earthMode" ref="earthPanelRef" @close="earthMode = false" />
+        <EarthPanel
+          v-if="earthMode"
+          ref="earthPanelRef"
+          :rain-active="rainActive"
+          @close="earthMode = false"
+          @rain="rainRef?.open($event)"
+          @navigate="rainRef?.close(false)"
+        />
+        <RainForecastWorkspace
+          ref="rainRef"
+          :earth-mode="earthMode"
+          @opened="rainOpened"
+          @closed="rainActive = false"
+          @analysis="earthPanelRef?.showAnalysis()"
+        />
         <PickOverlay v-if="!earthMode" />
       </CesiumViewer>
     </main>
@@ -262,6 +300,13 @@ watch(pluginEnabled, async (enabled) => {
   font-size: 14px;
   font-weight: 600;
   letter-spacing: 1px;
+}
+
+.rain-entry {
+  padding: 0 12px 12px;
+  color: #b8c8dc;
+  font-size: 12px;
+  line-height: 1.6;
 }
 
 .panel-scroll {

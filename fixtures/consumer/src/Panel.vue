@@ -11,7 +11,12 @@ import {
 import { createPoint } from '@sgyx/cesium-kit-core'
 import { parseEarthManifest } from '@sgyx/cesium-kit-earth'
 import { parseFloodDataset } from '@sgyx/cesium-kit-flood'
-import { parseWeatherLayer } from '@sgyx/cesium-kit-weather'
+import {
+  getRainForecast,
+  parseWeatherLayer,
+  summarizeRainForecast,
+  type RainForecastProvider
+} from '@sgyx/cesium-kit-weather'
 import { parseWindJson } from '@sgyx/cesium-kit-wind'
 
 const windPreview = parseWindJson({
@@ -68,8 +73,32 @@ const { ready } = useViewer()
 const { state: clock } = useClock()
 const { last } = usePick()
 const added = ref(false)
+const rainTotal = ref<number | null>(null)
+const rainProvider: RainForecastProvider = {
+  id: 'consumer-demo',
+  async load() {
+    return {
+      mode: 'demo',
+      source: 'consumer fixture',
+      referenceTime: '2026-10-29T00:10:00Z',
+      hourly: [
+        {
+          start: '2026-10-29T00:00:00Z',
+          end: '2026-10-29T01:00:00Z',
+          rain: 1,
+          probability: 50,
+          precipitation: 1,
+          snowfall: 0
+        }
+      ]
+    }
+  }
+}
 
 onMounted(async () => {
+  rainTotal.value = summarizeRainForecast(
+    await getRainForecast(104, 30, { provider: rainProvider })
+  ).totalRain
   await add(
     createPoint({
       id: 'beijing',
@@ -98,6 +127,7 @@ function toggleMode() {
     <div>pick: {{ last ? last.lonLatHeight.lon.toFixed(4) : '-' }}</div>
     <div>wind: {{ windPreview.width }}×{{ windPreview.height }}</div>
     <div>weather: {{ weatherPreview.kind }} · {{ weatherPreview.frames.length }}</div>
+    <div>rain: {{ rainTotal }} mm</div>
     <div>flood: {{ floodPreview.forecastNodes.length }} · {{ floodPreview.rivers.length }}</div>
     <div>earth: {{ earthPreview.modes.length }} · {{ earthPreview.modes[0]?.label }}</div>
     <button @click="flyHome()">home</button>

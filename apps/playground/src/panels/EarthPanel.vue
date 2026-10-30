@@ -43,8 +43,11 @@ import {
   type EarthVectorConfig
 } from '@sgyx/cesium-kit-earth'
 
+const props = defineProps<{ rainActive?: boolean }>()
 const emit = defineEmits<{
   close: []
+  rain: [point: { lon: number; lat: number }]
+  navigate: []
 }>()
 
 const { manager, whenReady } = useViewer()
@@ -99,6 +102,7 @@ let initialRequest: AbortController | undefined
 let loadRevision = 0
 let previousFocus: HTMLElement | null = null
 function openDrawer(name: string) {
+  emit('navigate')
   previousFocus = document.activeElement as HTMLElement | null
   if (activeDrawer.value === name && controlsOpen.value) controlsOpen.value = false
   else {
@@ -107,15 +111,23 @@ function openDrawer(name: string) {
   }
 }
 function toggleData() {
+  emit('navigate')
   if (window.matchMedia('(max-width: 720px)').matches) {
     settings.infoBar = true
     openDrawer('data')
   } else settings.infoBar = !settings.infoBar
 }
 function showAnalysis() {
+  emit('navigate')
   activeDrawer.value = 'analysis'
   controlsOpen.value = true
 }
+function showRain() {
+  if (!probe.value) return
+  controlsOpen.value = false
+  emit('rain', { lon: probe.value.lon, lat: probe.value.lat })
+}
+watch(() => props.rainActive, (active) => { if (active) controlsOpen.value = false })
 function closeDrawer() {
   controlsOpen.value = false
   previousFocus?.focus()
@@ -822,7 +834,7 @@ async function retryLayers() {
     busy.value = false
   }
 }
-defineExpose({ captureWorkspace, restoreWorkspace, finishRestore, whenReady: () => initialized })
+defineExpose({ captureWorkspace, restoreWorkspace, finishRestore, showAnalysis, whenReady: () => initialized })
 
 onMounted(async () => {
   document.addEventListener('keydown', escapeDrawer, true)
@@ -869,7 +881,7 @@ onBeforeUnmount(() => {
 <template>
   <div
     class="earth-panel-wrap"
-    :class="[`drawer-${activeDrawer}`, { 'drawer-open': controlsOpen }]"
+    :class="[`drawer-${activeDrawer}`, { 'drawer-open': controlsOpen, 'rain-active': rainActive }]"
   >
     <div class="earth-hud earth-hud-top">
       <div class="earth-brand-mark">
@@ -1538,6 +1550,7 @@ onBeforeUnmount(() => {
         >
       </div>
       <el-button size="small" @click="showAnalysis"> 查看时间曲线 </el-button>
+      <el-button size="small" @click="showRain">降雨预报</el-button>
     </aside>
 
     <aside
@@ -1556,6 +1569,7 @@ onBeforeUnmount(() => {
       {{ activeOverlay.label }} · {{ activeOverlay.unit }}
       <div class="earth-legend" :style="legendStyle" />
       <span>{{ activeOverlay.min }} — {{ activeOverlay.max }}</span>
+      <small v-if="activeOverlay.id === 'rain'">离线快照 · {{ formatTime(actualSampledTime) }} UTC+8</small>
     </div>
     <nav class="earth-mobile-tabs" aria-label="地球抽屉">
       <button
@@ -1643,6 +1657,10 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped>
+.rain-active :is(.earth-data-card, .earth-readout-card, .earth-hover-readout, .earth-analysis-panel, .earth-catalog, .earth-panel, .earth-sidebar-tabs) {
+  display: none !important;
+}
+.earth-mini-legend small { display: block; font-size: 10px; }
 .earth-panel-wrap {
   position: absolute;
   inset: 0;

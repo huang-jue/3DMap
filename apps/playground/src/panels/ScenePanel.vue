@@ -5,17 +5,17 @@ import { useViewer } from '@sgyx/cesium-kit-vue'
 import type { CameraView, SceneModeName } from '@sgyx/cesium-kit-core'
 
 const props = defineProps<{
-  baseLayer: string
+  baseLayer: string | null
   sceneMode: SceneModeName
   pluginEnabled: boolean
   view: CameraView | null
 }>()
 
 const emit = defineEmits<{
-  'update:baseLayer': [id: string]
+  'update:baseLayer': [id: string | null]
   'update:sceneMode': [mode: SceneModeName]
   'update:pluginEnabled': [enabled: boolean]
-  'share': []
+  share: []
   'screenshot-error': [message: string]
 }>()
 
@@ -78,7 +78,7 @@ function onAtmosphere(value: boolean) {
     <div class="field">
       <div class="field-label">底图</div>
       <el-radio-group
-        :model-value="props.baseLayer"
+        :model-value="props.baseLayer ?? undefined"
         size="small"
         @update:model-value="emit('update:baseLayer', $event as string)"
       >
